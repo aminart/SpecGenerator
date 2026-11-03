@@ -9,7 +9,7 @@ import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { MermaidDiagram, mermaidError } from "./MermaidDiagram";
-import { EmptyPanel, ExportButtons, MarkdownEditor, ProgressPanel, ResultCard } from "./ResultCard";
+import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -173,14 +173,12 @@ export function ContextPage({
           tabs={[
             { id: "preview", label: "Aperçu" },
             { id: "journeys", label: "Parcours utilisateur" },
-            { id: "edit", label: "Modifier" },
           ]}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           actions={<ExportButtons kind="context" markdown={result.markdown} language={state.language} />}
         >
           {activeTab === "preview" && <MarkdownPreview markdown={stripTitle(result.markdown)} />}
-          {activeTab === "edit" && <MarkdownEditor value={result.markdown} onChange={(markdown) => update({ result: { ...result, markdown } })} />}
           {activeTab === "journeys" && (
             <div className="flex flex-col gap-10">
               <section>

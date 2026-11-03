@@ -6,7 +6,7 @@ import type { DetailLevel, FeatureImage, Language, LoadedFile, SpecResult } from
 import { AddFileButton, DetailLevelField, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
-import { EmptyPanel, ExportButtons, MarkdownEditor, ProgressPanel, ResultCard } from "./ResultCard";
+import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -40,7 +40,6 @@ export function SpecPage({
 }) {
   const toast = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState("preview");
   const result = state.result;
   const usesGeneratedContext = !state.importedContext && Boolean(generatedContext);
   const businessContext = state.importedContext ? String(state.importedContext.content) : generatedContext;
@@ -58,7 +57,6 @@ export function SpecPage({
         detail_level: state.detailLevel ?? "standard",
       });
       update({ result: { ...generated, generatedAt: new Date().toISOString() } });
-      setActiveTab("preview");
       const warningCount = generated.warnings?.length ?? 0;
       toast(
         warningCount ? "info" : "success",
@@ -198,12 +196,6 @@ export function SpecPage({
           eyebrow={state.language === "en" ? "Detailed UX / HMI specification" : "Spécification UX / HMI détaillée"}
           title={documentTitle(result.markdown, state.language === "en" ? "UX / HMI Specification" : "Spécification UX / HMI")}
           meta={`Généré le ${formatDateTime(result.generatedAt)} · ${LANGUAGE_LABELS[state.language]}`}
-          tabs={[
-            { id: "preview", label: "Aperçu" },
-            { id: "edit", label: "Modifier" },
-          ]}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
           actions={<ExportButtons kind="spec" markdown={result.markdown} language={state.language} image={state.image} />}
         >
           {result.warnings && result.warnings.length > 0 && (
@@ -216,11 +208,7 @@ export function SpecPage({
               </ul>
             </div>
           )}
-          {activeTab === "preview" ? (
-            <MarkdownPreview markdown={stripTitle(result.markdown)} image={state.image} imageAlt={documentTitle(result.markdown, "Feature")} />
-          ) : (
-            <MarkdownEditor value={result.markdown} onChange={(markdown) => update({ result: { ...result, markdown } })} />
-          )}
+          <MarkdownPreview markdown={stripTitle(result.markdown)} image={state.image} imageAlt={documentTitle(result.markdown, "Feature")} />
         </ResultCard>
       ) : (
         <EmptyPanel icon={<Monitor className="h-[30px] w-[30px]" strokeWidth={1.6} />} title="Aucune spécification pour le moment">
