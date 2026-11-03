@@ -4,12 +4,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, downloadText } from "../lib/api";
 import { documentTitle, formatDateTime, formatSize, LANGUAGE_LABELS, readJsonFile, readTextFile, stripTitle } from "../lib/files";
-import type { ContextResult, Language, LoadedFile } from "../lib/types";
-import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
+import type { ContextResult, DetailLevel, Language, LoadedFile } from "../lib/types";
+import { AddFileButton, DetailLevelField, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { MermaidDiagram, mermaidError } from "./MermaidDiagram";
-import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard } from "./ResultCard";
+import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -17,6 +17,8 @@ export interface ContextState {
   markdownFiles: LoadedFile[];
   jsonFiles: LoadedFile[];
   language: Language;
+  /** Missing in states saved before the field existed. */
+  detailLevel?: DetailLevel;
   result: ContextResult | null;
   flowMermaid: string;
 }
@@ -63,14 +65,17 @@ export function ContextPage({
         json_sources: state.jsonFiles,
         component_library: componentLibrary?.content ?? null,
         language: state.language,
+        detail_level: state.detailLevel ?? "standard",
       });
       update({ result: { ...generated, generatedAt: new Date().toISOString() }, flowMermaid: "" });
       setActiveTab("preview");
       toast(
-        generated.retried_light ? "info" : "success",
+        generated.retried_light || generated.warnings?.length ? "info" : "success",
         generated.retried_light
           ? "Contexte généré après une nouvelle tentative en mode allégé (délai dépassé)."
-          : `Document de contexte généré en ${generated.timings.total} s.`,
+          : generated.warnings?.length
+            ? `Document de contexte généré en ${generated.timings.total} s, avec des points à vérifier.`
+            : `Document de contexte généré en ${generated.timings.total} s.`,
       );
     } catch (error) {
       toast("error", (error as Error).message);
@@ -142,6 +147,8 @@ export function ContextPage({
           <ComponentLibraryField file={componentLibrary} onChange={onComponentLibraryChange} sharedWith="Générer une spécification" />
 
           <LanguageField value={state.language} onChange={(language) => update({ language })} />
+
+          <DetailLevelField value={state.detailLevel ?? "standard"} onChange={(detailLevel) => update({ detailLevel })} />
         </>
       }
       footer={
@@ -178,7 +185,12 @@ export function ContextPage({
           onTabChange={setActiveTab}
           actions={<ExportButtons kind="context" markdown={result.markdown} language={state.language} />}
         >
-          {activeTab === "preview" && <MarkdownPreview markdown={stripTitle(result.markdown)} />}
+          {activeTab === "preview" && (
+            <>
+              <WarningsPanel warnings={result.warnings} />
+              <MarkdownPreview markdown={stripTitle(result.markdown)} />
+            </>
+          )}
           {activeTab === "journeys" && (
             <div className="flex flex-col gap-10">
               <section>

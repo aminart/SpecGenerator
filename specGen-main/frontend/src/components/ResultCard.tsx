@@ -110,6 +110,21 @@ export function ExportButtons({
   );
 }
 
+/** Problems the backend still found in the generated document after its correction pass. */
+export function WarningsPanel({ warnings }: { warnings?: string[] }) {
+  if (!warnings?.length) return null;
+  return (
+    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      <p className="font-medium">Points à vérifier dans ce document</p>
+      <ul className="mt-1 list-disc pl-5">
+        {warnings.map((warning) => (
+          <li key={warning}>{warning}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function MarkdownEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <div className="flex flex-col gap-2">

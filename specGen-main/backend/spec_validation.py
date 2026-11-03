@@ -216,3 +216,60 @@ def format_warnings(issues: dict[str, list[str]]) -> list[str]:
         f"Composant absent du JSON : « {name} » (peut-être inventé)" for name in issues["unknown_components"]
     )
     return warnings
+
+
+# --- Generic checks against an "expected structure" text (context document) -------------
+
+_CONFIDENCE_COLUMNS = {"niveau de confiance", "confidence level"}
+
+
+def parse_expected_structure(structure: str) -> tuple[list[tuple[int, str]], dict[str, list[str]]]:
+    """Headings and table columns of a structure written as Markdown headings, each table
+    being given by its header line right after the heading it belongs to."""
+    headings: list[tuple[int, str]] = []
+    tables: dict[str, list[str]] = {}
+    for line in structure.splitlines():
+        match = _HEADING.match(line)
+        if match:
+            headings.append((len(match.group(1)), match.group(2)))
+        elif line.strip().startswith("|") and headings and headings[-1][1] not in tables:
+            if not re.fullmatch(r"\|?[\s:|-]+\|?", line.strip()):
+                tables[headings[-1][1]] = _split_row(line)
+    return headings, tables
+
+
+def check_against_structure(markdown: str, structure: str, language: str) -> list[str]:
+    lang = "fr" if language == "fr" else "en"
+    expected_headings, expected_tables = parse_expected_structure(structure)
+    present = {(level, normalize_name(title)) for level, title, _ in _sections(markdown)}
+    issues = [
+        f"Titre manquant : {'#' * level} {title}"
+        for level, title in expected_headings
+        if (level, normalize_name(title)) not in present
+    ]
+    allowed = {normalize_name(level) for level in CONFIDENCE_LEVELS[lang]}
+    for title, columns in expected_tables.items():
+        lines = _find_section(markdown, title)
+        if lines is None:
+            continue
+        table = _first_table(lines)
+        if table is None:
+            issues.append(f"La section « {title} » doit contenir un tableau Markdown avec les colonnes : {' | '.join(columns)}")
+            continue
+        header, rows = table
+        normalized_header = [normalize_name(cell) for cell in header]
+        if normalized_header != [normalize_name(cell) for cell in columns]:
+            issues.append(
+                f"Le tableau de « {title} » doit avoir exactement les colonnes {' | '.join(columns)} "
+                f"(trouvé : {' | '.join(header)})"
+            )
+            continue
+        for index, column in enumerate(normalized_header):
+            if column in _CONFIDENCE_COLUMNS:
+                wrong = sorted({row[index] for row in rows if len(row) == len(columns) and normalize_name(row[index]) not in allowed})
+                if wrong:
+                    issues.append(
+                        f"Le niveau de confiance doit valoir {', '.join(CONFIDENCE_LEVELS[lang])} "
+                        f"(trouvé dans « {title} » : {', '.join(wrong)})"
+                    )
+    return issues

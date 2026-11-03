@@ -75,6 +75,9 @@ export interface ContextResult {
   journey_markdown: string;
   journey_mermaid: string;
   retried_light: boolean;
+  /** Problems still found after the correction pass (missing headings, tables…). */
+  warnings?: string[];
+  corrected?: boolean;
   timings: { analysis: number; llm: number; total: number };
   generatedAt?: string;
 }

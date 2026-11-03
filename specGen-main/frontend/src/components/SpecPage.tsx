@@ -6,7 +6,7 @@ import type { DetailLevel, FeatureImage, Language, LoadedFile, SpecResult } from
 import { AddFileButton, DetailLevelField, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
-import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard } from "./ResultCard";
+import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -198,16 +198,7 @@ export function SpecPage({
           meta={`Généré le ${formatDateTime(result.generatedAt)} · ${LANGUAGE_LABELS[state.language]}`}
           actions={<ExportButtons kind="spec" markdown={result.markdown} language={state.language} image={state.image} />}
         >
-          {result.warnings && result.warnings.length > 0 && (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              <p className="font-medium">Points à vérifier dans ce document</p>
-              <ul className="mt-1 list-disc pl-5">
-                {result.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <WarningsPanel warnings={result.warnings} />
           <MarkdownPreview markdown={stripTitle(result.markdown)} image={state.image} imageAlt={documentTitle(result.markdown, "Feature")} />
         </ResultCard>
       ) : (

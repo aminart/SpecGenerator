@@ -32,6 +32,8 @@ Un fichier `.env` placé à côté de l'exe (ou à la racine du projet) est prio
 
 Pour la spec, le JSON de l'écran est envoyé au modèle sous une forme élaguée (sans géométrie ni styles). Sa taille maximale est de 40 000 caractères par défaut ; avec un modèle à grande fenêtre de contexte, on peut l'augmenter dans le `.env` avec `CUSTOM_MAX_JSON_CHARS=120000`. Au-delà, les longues listes et les niveaux les plus profonds sont coupés.
 
+Pour le contexte, les documents Markdown sont limités à 40 000 caractères au total (`CUSTOM_MAX_CONTEXT_CHARS`), et le JSON de l'application à la moitié de `CUSTOM_MAX_JSON_CHARS`.
+
 ## Templates Word
 
 Les exports DOCX partent des fichiers `Template_Documentatio_{Specs,Context}_{fr,en}.docx`. Pour les personnaliser, ouvrez-les dans Word :

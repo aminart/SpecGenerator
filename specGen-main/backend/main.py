@@ -189,9 +189,9 @@ def generate_context(request: ContextRequest) -> dict[str, Any]:
     if request.designer_description.strip():
         priority_parts.append(f"# Description designer\n\n{request.designer_description.strip()}")
 
+    # The designer description is already in the priority documents: it is not sent twice.
     generation_kwargs = dict(
-        global_json_source=context_source_text,
-        designer_description=request.designer_description,
+        json_source=json_text,
         language=request.language,
         detail_level=request.detail_level,
         analysis=analysis,
@@ -214,7 +214,9 @@ def generate_context(request: ContextRequest) -> dict[str, Any]:
         raise _generation_error(exc) from exc
 
     return {
-        "markdown": unwrap_markdown_fence(generated),
+        "markdown": generated["markdown"],
+        "warnings": generated["warnings"],
+        "corrected": generated["corrected"],
         "journey_markdown": journey_result["journey_markdown"],
         "journey_mermaid": journey_result["journey_mermaid"],
         "retried_light": retried_light,
