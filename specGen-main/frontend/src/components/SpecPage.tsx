@@ -59,7 +59,13 @@ export function SpecPage({
       });
       update({ result: { ...generated, generatedAt: new Date().toISOString() } });
       setActiveTab("preview");
-      toast("success", `Spécification générée en ${generated.timings.total} s.`);
+      const warningCount = generated.warnings?.length ?? 0;
+      toast(
+        warningCount ? "info" : "success",
+        warningCount
+          ? `Spécification générée en ${generated.timings.total} s, avec ${warningCount} point${warningCount > 1 ? "s" : ""} à vérifier.`
+          : `Spécification générée en ${generated.timings.total} s.`,
+      );
     } catch (error) {
       toast("error", (error as Error).message);
     } finally {
@@ -200,6 +206,16 @@ export function SpecPage({
           onTabChange={setActiveTab}
           actions={<ExportButtons kind="spec" markdown={result.markdown} language={state.language} image={state.image} />}
         >
+          {result.warnings && result.warnings.length > 0 && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-medium">Points à vérifier dans ce document</p>
+              <ul className="mt-1 list-disc pl-5">
+                {result.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {activeTab === "preview" ? (
             <MarkdownPreview markdown={stripTitle(result.markdown)} image={state.image} imageAlt={documentTitle(result.markdown, "Feature")} />
           ) : (

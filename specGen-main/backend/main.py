@@ -40,7 +40,7 @@ from document_export import (
 )
 from journey_analysis import analyze_user_journeys_from_json
 from json_analysis import analyze_json_structure, classify_component_scope
-from markdown_cleanup import replace_json_paths_with_names, unwrap_markdown_fence
+from markdown_cleanup import unwrap_markdown_fence
 from drawio_converter import NotADrawioFile
 from markdown_converter import SUPPORTED_EXTENSIONS, convert_to_markdown
 from mermaid_generator import generate_mermaid_flow_from_context
@@ -77,6 +77,9 @@ class ContextRequest(BaseModel):
 class MermaidRequest(BaseModel):
     markdown: str
     language: Language = "fr"
+    # Sent by the frontend when the diagram it received does not parse: the model fixes it.
+    previous_code: str | None = None
+    error: str | None = None
 
 
 class SpecRequest(BaseModel):
@@ -227,7 +230,11 @@ def generate_context(request: ContextRequest) -> dict[str, Any]:
 def generate_mermaid(request: MermaidRequest) -> dict[str, str]:
     _require_llm()
     try:
-        return {"mermaid": generate_mermaid_flow_from_context(request.markdown, request.language)}
+        return {
+            "mermaid": generate_mermaid_flow_from_context(
+                request.markdown, request.language, previous_code=request.previous_code, error=request.error
+            )
+        }
     except Exception as exc:
         raise _generation_error(exc) from exc
 
@@ -260,7 +267,10 @@ def generate_spec_document(request: SpecRequest) -> dict[str, Any]:
         raise _generation_error(exc) from exc
 
     return {
-        "markdown": replace_json_paths_with_names(unwrap_markdown_fence(generated), request.spec_json),
+        "markdown": generated["markdown"],
+        "warnings": generated["warnings"],
+        "corrected": generated["corrected"],
+        "inventory": generated["inventory"],
         "scope": scope,
         "timings": {"total": round(time.perf_counter() - timing_start, 1)},
     }

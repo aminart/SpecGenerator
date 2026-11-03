@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import re
 from typing import Any
 
 from json_analysis import (
@@ -14,8 +16,12 @@ from json_analysis import (
     format_analysis_for_prompt_compact,
     to_text,
 )
+from markdown_cleanup import replace_json_paths_with_names, unwrap_markdown_fence
+from spec_validation import collect_json_names, format_issues_for_model, normalize_name, format_warnings, validate_spec
 from openai_client import get_model_name, get_openai_client
 from templates import TEMPLATES
+
+logger = logging.getLogger(__name__)
 
 
 def _get_ux_hmi_language_rules(language: str) -> str:
@@ -403,6 +409,98 @@ Good error:
 }
 
 
+INVENTORY_SYSTEM_PROMPT = (
+    "You extract a component inventory from a UI JSON export (Figma). You only report what the JSON shows: "
+    "never add a component, state or interaction that is not in it. Return one JSON object and nothing else."
+)
+INVENTORY_INSTRUCTIONS = """Return a JSON object with this shape:
+{
+  "zones": [
+    {
+      "name": "exact `name` of the zone container in the JSON",
+      "components": [
+        {
+          "figma_name": "exact `name` of the layer in the JSON",
+          "type": "button, input, text, icon, list, card…",
+          "texts": ["visible texts"],
+          "default_state": "state shown in the JSON, or null",
+          "states": ["states or variants found in properties, variantOptions or hidden layers"],
+          "interactions": ["prototype interactions, as written in the JSON"],
+          "repeated": 1
+        }
+      ]
+    }
+  ],
+  "hidden_layers": ["names of layers with visible: false"],
+  "error_signals": ["error messages or error layers found in the JSON"]
+}
+Rules:
+- One zone per functional block (header, form, list, panel…), in reading order.
+- Group identical repeated elements in one component with "repeated" set to their number.
+- Skip purely decorative layers (backgrounds, dividers, vectors without meaning).
+- Use null or [] when the JSON says nothing; do not guess."""
+
+
+def _parse_json_object(text: str) -> dict[str, Any] | None:
+    stripped = (text or "").strip()
+    fence = re.search(r"```(?:json)?\s*\n(.*?)\n```", stripped, re.DOTALL)
+    if fence:
+        stripped = fence.group(1)
+    start, end = stripped.find("{"), stripped.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        value = json.loads(stripped[start : end + 1])
+    except ValueError:
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _filter_inventory(inventory: dict[str, Any], json_names: set[str]) -> dict[str, Any]:
+    """Drops the components whose name is not in the JSON: the inventory must not carry inventions."""
+    zones = []
+    for zone in inventory.get("zones") or []:
+        if not isinstance(zone, dict):
+            continue
+        components = [
+            component
+            for component in zone.get("components") or []
+            if isinstance(component, dict) and _normalize_name(component.get("figma_name")) in json_names
+        ]
+        if components:
+            zones.append({**zone, "components": components})
+    return {**inventory, "zones": zones}
+
+
+def _normalize_name(value: Any) -> str:
+    return normalize_name(value) if isinstance(value, str) else ""
+
+
+def extract_component_inventory(client: Any, screen_json: str, analysis_text: str, json_names: set[str]) -> str | None:
+    """First pass for feature zones: an inventory of what the JSON contains, so that the
+    writing pass covers every component instead of picking a few."""
+    response = client.chat.completions.create(
+        model=get_model_name(),
+        temperature=0,
+        messages=[
+            {"role": "system", "content": INVENTORY_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": "\n\n".join(
+                    [_tagged("screen_json", screen_json), _tagged("json_analysis", analysis_text), INVENTORY_INSTRUCTIONS]
+                ),
+            },
+        ],
+    )
+    inventory = _parse_json_object(response.choices[0].message.content or "")
+    if not inventory:
+        return None
+    inventory = _filter_inventory(inventory, json_names)
+    if not inventory["zones"]:
+        return None
+    return json.dumps(inventory, ensure_ascii=False, indent=1)
+
+
 def _tagged(tag: str, content: str) -> str:
     return f"<{tag}>\n{content.strip()}\n</{tag}>"
 
@@ -442,7 +540,8 @@ def generate_spec(
     component_focus_path: str | None = None,
     component_scope_label: str | None = None,
     component_scope_rationale: str | None = None,
-) -> str:
+) -> dict[str, Any]:
+    """Returns {"markdown", "warnings", "corrected", "inventory"}."""
     client = get_openai_client()
     lang = "fr" if language == "fr" else "en"
 
@@ -450,15 +549,32 @@ def generate_spec(
     context_parts = [part.strip() for part in (priority_context_documents, business_context) if part and part.strip()]
     if len(context_parts) == 2 and context_parts[1] in context_parts[0]:
         context_parts = context_parts[:1]
+    screen_json = _build_compact_json_source_for_prompt(json_source, analysis)
+    analysis_text = format_analysis_for_prompt(analysis)
+    try:
+        data = json.loads(json_source) if json_source and json_source.strip() else None
+    except ValueError:
+        data = None
+    json_names = collect_json_names(data) if data is not None else set()
+
     sections = [
         _tagged("project_context", "\n\n".join(context_parts) or "No project context provided."),
-        _tagged("screen_json", _build_compact_json_source_for_prompt(json_source, analysis)),
-        _tagged("json_analysis", format_analysis_for_prompt(analysis)),
+        _tagged("screen_json", screen_json),
+        _tagged("json_analysis", analysis_text),
     ]
+
+    scope_key = analysis.get("component_scope", {}).get("scope")
+    inventory = None
+    if scope_key == "feature_zone" and template_key == "ux_hmi_detailed" and json_names:
+        try:
+            inventory = extract_component_inventory(client, screen_json, analysis_text, json_names)
+        except Exception:  # The inventory only helps: the spec is still written without it.
+            logger.warning("Component inventory pass failed", exc_info=True)
+        if inventory:
+            sections.append(_tagged("component_inventory", inventory))
     if component_library_summary and component_library_summary.strip():
         sections.append(_tagged("component_library", component_library_summary))
 
-    scope_key = analysis.get("component_scope", {}).get("scope")
     target_lines = []
     if component_scope_label:
         target_lines.append(f"Detected scope: {component_scope_label}")
@@ -495,6 +611,13 @@ def generate_spec(
                     f"- Each row of the feature details table gets a confidence level; {low} rows must match an item in the assumptions section.",
                     "- When the JSON was shortened (`children_omitted`, compact summary), do not describe the omitted parts beyond what the analysis states.",
                     "- Always include the assumptions and open questions sections, stating that none was identified when that is the case.",
+                    *(
+                        [
+                            "- <component_inventory> lists what the JSON contains, zone by zone: every component in it must be covered by the feature details table (repeated ones grouped in one row)."
+                        ]
+                        if inventory
+                        else []
+                    ),
                 ]
             ),
         )
@@ -504,13 +627,53 @@ def generate_spec(
         sections.append(_tagged("examples", _EXAMPLES[lang]))
     sections.append("Write the specification now.")
 
-    response = client.chat.completions.create(
-        model=get_model_name(),
-        temperature=0.2,
-        messages=[
-            {"role": "system", "content": build_spec_system_prompt(lang)},
-            {"role": "user", "content": "\n\n".join(sections)},
-        ],
-    )
+    messages = [
+        {"role": "system", "content": build_spec_system_prompt(lang)},
+        {"role": "user", "content": "\n\n".join(sections)},
+    ]
+    response = client.chat.completions.create(model=get_model_name(), temperature=0.2, messages=messages)
+    markdown = _clean_output(response.choices[0].message.content, data)
+    if not markdown.strip():
+        return {"markdown": "# Error\n\nNo content returned by model.\n", "warnings": [], "corrected": False, "inventory": False}
 
-    return response.choices[0].message.content or "# Error\n\nNo content returned by model."
+    corrected = False
+    issues: dict[str, list[str]] = {"structure": [], "unknown_components": []}
+    if template_key == "ux_hmi_detailed":
+        issues = validate_spec(markdown, lang, json_names)
+        if issues["structure"] or issues["unknown_components"]:
+            # One correction pass with the precise list of problems; a second one rarely helps.
+            try:
+                retry = client.chat.completions.create(
+                    model=get_model_name(),
+                    temperature=0,
+                    messages=[
+                        *messages,
+                        {"role": "assistant", "content": markdown},
+                        {"role": "user", "content": format_issues_for_model(issues, lang)},
+                    ],
+                )
+                fixed = _clean_output(retry.choices[0].message.content, data)
+            except Exception:
+                logger.warning("Spec correction pass failed", exc_info=True)
+                fixed = ""
+            if fixed.strip():
+                fixed_issues = validate_spec(fixed, lang, json_names)
+                # Keep the correction unless it made things worse.
+                if _issue_count(fixed_issues) <= _issue_count(issues):
+                    markdown, issues, corrected = fixed, fixed_issues, True
+
+    return {
+        "markdown": markdown,
+        "warnings": format_warnings(issues),
+        "corrected": corrected,
+        "inventory": bool(inventory),
+    }
+
+
+def _issue_count(issues: dict[str, list[str]]) -> int:
+    return len(issues["structure"]) + len(issues["unknown_components"])
+
+
+def _clean_output(content: str | None, data: Any) -> str:
+    markdown = unwrap_markdown_fence(content or "")
+    return replace_json_paths_with_names(markdown, data) if data is not None else markdown

@@ -81,6 +81,10 @@ export interface ContextResult {
 
 export interface SpecResult {
   markdown: string;
+  /** Problems still found after the correction pass (missing headings, components absent from the JSON…). */
+  warnings?: string[];
+  corrected?: boolean;
+  inventory?: boolean;
   scope: ComponentScope;
   timings: { total: number };
   generatedAt?: string;

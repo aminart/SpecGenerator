@@ -10,6 +10,17 @@ function loadMermaid() {
   return mermaidLoader;
 }
 
+/** The parser's error message, or null when the code is valid Mermaid. */
+export async function mermaidError(code: string): Promise<string | null> {
+  try {
+    const mermaid = await loadMermaid();
+    await mermaid.parse(code);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 export function MermaidDiagram({ code }: { code: string }) {
   const id = `mermaid-${useId().replace(/:/g, "")}`;
   const [svg, setSvg] = useState("");

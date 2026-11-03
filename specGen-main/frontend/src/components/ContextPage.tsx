@@ -8,7 +8,7 @@ import type { ContextResult, Language, LoadedFile } from "../lib/types";
 import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
-import { MermaidDiagram } from "./MermaidDiagram";
+import { MermaidDiagram, mermaidError } from "./MermaidDiagram";
 import { EmptyPanel, ExportButtons, MarkdownEditor, ProgressPanel, ResultCard } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
@@ -83,7 +83,13 @@ export function ContextPage({
     if (!result) return;
     setIsGeneratingFlow(true);
     try {
-      const { mermaid } = await api.generateMermaid(result.markdown, state.language);
+      let { mermaid } = await api.generateMermaid(result.markdown, state.language);
+      const error = await mermaidError(mermaid);
+      if (error) {
+        // One correction round with the parser's message; keep the first version if it is no better.
+        const fixed = await api.generateMermaid(result.markdown, state.language, { previous_code: mermaid, error });
+        if (!(await mermaidError(fixed.mermaid))) mermaid = fixed.mermaid;
+      }
       update({ flowMermaid: mermaid });
     } catch (error) {
       toast("error", (error as Error).message);
