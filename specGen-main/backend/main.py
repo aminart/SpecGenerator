@@ -243,7 +243,9 @@ def generate_spec_document(request: SpecRequest) -> dict[str, Any]:
     try:
         generated = generate_spec(
             json_source=json.dumps(request.spec_json, ensure_ascii=False, indent=2),
-            business_context=business_context,
+            # The context goes in once, as the priority source: passing it a second time as
+            # business context only doubled the prompt.
+            business_context="",
             language=request.language,
             detail_level=request.detail_level,
             template_key=SPEC_TEMPLATE_KEY,

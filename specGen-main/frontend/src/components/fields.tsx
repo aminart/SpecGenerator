@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { CloudUpload, Plus, X } from "lucide-react";
-import type { Language } from "../lib/types";
+import type { DetailLevel, Language } from "../lib/types";
 
 export function Field({ label, optional, hint, children }: { label: string; optional?: boolean; hint?: string; children: ReactNode }) {
   return (
@@ -185,6 +185,37 @@ export function LanguageField({ value, onChange }: { value: Language; onChange: 
           </button>
         ))}
       </div>
+    </Field>
+  );
+}
+
+const DETAIL_LEVEL_OPTIONS: { value: DetailLevel; label: string; hint: string }[] = [
+  { value: "compact", label: "Synthétique", hint: "Composants clés et erreurs principales." },
+  { value: "standard", label: "Standard", hint: "Chaque composant interactif, interaction principale et erreurs." },
+  { value: "detailed", label: "Détaillé", hint: "Tous les états, transitions et cas limites." },
+];
+
+export function DetailLevelField({ value, onChange }: { value: DetailLevel; onChange: (value: DetailLevel) => void }) {
+  const current = DETAIL_LEVEL_OPTIONS.find((option) => option.value === value) ?? DETAIL_LEVEL_OPTIONS[1];
+  return (
+    <Field label="Niveau de détail">
+      <div role="radiogroup" aria-label="Niveau de détail" className="flex rounded-lg bg-[#F2F3F8] p-1">
+        {DETAIL_LEVEL_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={`min-h-[36px] flex-1 rounded-md text-sm transition ${
+              value === option.value ? "bg-white font-medium text-ink shadow-[0_1px_2px_rgba(16,24,64,0.12)]" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-ink-muted">{current.hint}</p>
     </Field>
   );
 }

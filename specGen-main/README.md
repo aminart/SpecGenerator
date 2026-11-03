@@ -30,6 +30,8 @@ Elle se configure dans l'écran **Paramètres** de l'application (URL, clé API,
 
 Un fichier `.env` placé à côté de l'exe (ou à la racine du projet) est prioritaire, champ par champ : voir `.env.example`.
 
+Pour la spec, le JSON de l'écran est envoyé au modèle sous une forme élaguée (sans géométrie ni styles). Sa taille maximale est de 40 000 caractères par défaut ; avec un modèle à grande fenêtre de contexte, on peut l'augmenter dans le `.env` avec `CUSTOM_MAX_JSON_CHARS=120000`. Au-delà, les longues listes et les niveaux les plus profonds sont coupés.
+
 ## Templates Word
 
 Les exports DOCX partent des fichiers `Template_Documentatio_{Specs,Context}_{fr,en}.docx`. Pour les personnaliser, ouvrez-les dans Word :

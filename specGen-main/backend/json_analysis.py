@@ -47,25 +47,65 @@ ACTION_HINTS = [
     "screenshot",
     "open",
 ]
+# Fallback only, for JSON without a `children` hierarchy: feature groups normally
+# come from the real structure of the file (see `_find_group_roots`).
 FEATURE_HINT_GROUPS = {
     "header": ["header", "top bar", "app bar"],
-    "rail_navigation": ["rail", "navigation", "sidebar", "side bar", "menu"],
-    "map_tools": ["map tools", "toolbar", "zoom", "layers", "measure", "screenshot", "compass"],
-    "panel": ["panel", "drawer", "side panel", "radar panel", "control panel"],
-    "modal_settings": ["settings", "modal", "dialog", "preferences"],
+    "navigation": ["rail", "navigation", "sidebar", "side bar", "menu", "tab bar"],
+    "toolbar": ["toolbar", "tool bar", "actions bar"],
+    "panel": ["panel", "drawer", "side panel"],
+    "modal": ["modal", "dialog", "popup", "sheet"],
     "tooltip": ["tooltip", "popover", "hint"],
-    "map_view": ["map", "radar", "canvas", "viewport"],
-    "cross_section": ["vue en coupe", "cross section", "azimut", "azimuth", "profile"],
+    "form": ["form", "input", "field"],
 }
 FEATURE_LABELS = {
     "header": "Header",
-    "rail_navigation": "Rail / Navigation",
-    "map_tools": "Map tools",
-    "panel": "Panel / Zone de contrôle",
-    "modal_settings": "Modal / Settings",
+    "navigation": "Navigation",
+    "toolbar": "Toolbar",
+    "panel": "Panel",
+    "modal": "Modal / Dialog",
     "tooltip": "Tooltip",
-    "map_view": "Map / Vue principale",
-    "cross_section": "Vue en coupe",
+    "form": "Formulaire",
+    "other": "Autres éléments",
+}
+# Figma node types that only wrap the real content.
+WRAPPER_NODE_TYPES = {"DOCUMENT", "CANVAS", "PAGE"}
+# Keys holding styling, geometry or metadata rather than UI nodes: never walked as nodes.
+NON_STRUCTURAL_KEYS = {
+    "absoluteBoundingBox",
+    "absoluteRenderBounds",
+    "absoluteTransform",
+    "background",
+    "backgroundColor",
+    "backgrounds",
+    "boundVariables",
+    "characterStyleOverrides",
+    "componentProperties",
+    "componentPropertyDefinitions",
+    "componentPropertyReferences",
+    "constraints",
+    "effects",
+    "exportSettings",
+    "fillGeometry",
+    "fills",
+    "flowStartingPoints",
+    "interactions",
+    "layoutGrids",
+    "lineIndentations",
+    "lineTypes",
+    "mainComponent",
+    "overrides",
+    "prototypeDevice",
+    "reactions",
+    "relativeTransform",
+    "strokeGeometry",
+    "strokes",
+    "style",
+    "styleOverrideTable",
+    "styles",
+    "variantProperties",
+    "vectorNetwork",
+    "vectorPaths",
 }
 STATE_HINTS = [
     "default",
@@ -96,6 +136,8 @@ STATE_HINTS = [
 ERROR_HINTS = ["error", "invalid", "warning", "failed", "failure", "required", "alert"]
 PRIMARY_ACTION_HINTS = ["save", "submit", "confirm", "continue", "next", "create"]
 SECONDARY_ACTION_HINTS = ["cancel", "close", "back", "edit", "delete"]
+# Figma variant properties describing a state rather than a variant.
+STATE_PROPERTY_NAMES = {"state", "status", "état", "etat", "statut", "interaction"}
 VARIANT_HINTS = [
     "primary",
     "secondary",
@@ -161,7 +203,7 @@ def infer_feature_groups(name: str, label: str | None, detected_type: str | None
         if any(hint in searchable_text for hint in hints):
             matched_groups.append(group_key)
 
-    return matched_groups or ["panel"]
+    return matched_groups or ["other"]
 
 
 
@@ -171,6 +213,167 @@ def _collect_text_signals(*values: str | None) -> str:
 
 def _extract_matching_hints(text: str, hints: list[str]) -> list[str]:
     return [hint for hint in hints if hint in text]
+
+
+def _children(obj: dict[str, Any]) -> list[dict[str, Any]]:
+    children = obj.get("children")
+    if not isinstance(children, list):
+        return []
+    return [child for child in children if isinstance(child, dict)]
+
+
+def _node_type(obj: dict[str, Any]) -> str:
+    return (to_text(obj.get("type")) or "").upper()
+
+
+def _find_structural_roots(data: Any) -> list[dict[str, Any]]:
+    """Outermost nodes with a `children` list, through wrappers such as multi-file payloads."""
+    roots: list[dict[str, Any]] = []
+
+    def search(value: Any) -> None:
+        if isinstance(value, list):
+            for item in value:
+                search(item)
+            return
+        if not isinstance(value, dict):
+            return
+        if isinstance(value.get("children"), list):
+            roots.append(value)
+            return
+        for key, item in value.items():
+            if key not in NON_STRUCTURAL_KEYS and isinstance(item, (dict, list)):
+                search(item)
+
+    search(data)
+    return roots
+
+
+def _find_group_roots(data: Any) -> list[dict[str, Any]]:
+    """Functional groups taken from the real hierarchy of the file.
+
+    From each structural root, wrapper nodes (document, pages) and containers with a single
+    child container are skipped; the containers found below are the groups (header,
+    form, list… as named by the designer).
+    """
+    groups: list[dict[str, Any]] = []
+    frontier = _find_structural_roots(data)
+    while frontier:
+        next_frontier: list[dict[str, Any]] = []
+        for node in frontier:
+            containers = [child for child in _children(node) if _children(child)]
+            if _node_type(node) in WRAPPER_NODE_TYPES or (len(containers) == 1 and len(_children(node)) == 1):
+                next_frontier.extend(_children(node))
+            elif containers:
+                groups.extend(containers)
+            elif _children(node):
+                groups.append(node)
+        frontier = next_frontier
+    return groups
+
+
+def _property_value(value: Any) -> str | None:
+    if isinstance(value, dict):
+        value = value.get("value")
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return to_text(value)
+
+
+def _clean_property_name(name: str) -> str:
+    # Figma suffixes non-variant properties with an id: "Show icon#12:3".
+    return name.split("#", 1)[0].strip()
+
+
+def extract_component_properties(obj: dict[str, Any]) -> dict[str, str]:
+    """Current variant / component property values of an instance (Figma)."""
+    properties: dict[str, str] = {}
+    for key in ("variantProperties", "componentProperties"):
+        raw = obj.get(key)
+        if not isinstance(raw, dict):
+            continue
+        for name, value in raw.items():
+            text = _property_value(value)
+            if text is not None:
+                properties.setdefault(_clean_property_name(str(name)), text)
+    return properties
+
+
+def extract_property_definitions(obj: dict[str, Any]) -> dict[str, list[str]]:
+    """All the variants a component set offers: {"State": ["Default", "Hover", …]}."""
+    definitions: dict[str, list[str]] = {}
+    raw = obj.get("componentPropertyDefinitions")
+    if not isinstance(raw, dict):
+        return definitions
+    for name, definition in raw.items():
+        if not isinstance(definition, dict):
+            continue
+        options = definition.get("variantOptions")
+        if isinstance(options, list) and options:
+            definitions[_clean_property_name(str(name))] = [str(option) for option in options]
+        elif definition.get("type") == "BOOLEAN":
+            definitions[_clean_property_name(str(name))] = ["true", "false"]
+    return definitions
+
+
+def collect_node_names(data: Any) -> dict[str, str]:
+    names: dict[str, str] = {}
+
+    def collect(value: Any) -> None:
+        if isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            identifier = to_text(value.get("id"))
+            name = to_text(value.get("name"))
+            if identifier and name:
+                names.setdefault(identifier, name)
+            for key, item in value.items():
+                if key not in NON_STRUCTURAL_KEYS and isinstance(item, (dict, list)):
+                    collect(item)
+
+    collect(data)
+    return names
+
+
+def _describe_action(action: dict[str, Any], node_names: dict[str, str]) -> str:
+    action_type = to_text(action.get("type")) or "ACTION"
+    navigation = to_text(action.get("navigation"))
+    destination_id = to_text(action.get("destinationId"))
+    url = to_text(action.get("url"))
+    parts = [navigation or action_type]
+    if destination_id:
+        parts.append(f"→ {node_names.get(destination_id, destination_id)}")
+    elif url:
+        parts.append(f"→ {url}")
+    return " ".join(parts)
+
+
+def extract_interactions(obj: dict[str, Any], node_names: dict[str, str]) -> list[str]:
+    """Prototype interactions of a node: "ON_CLICK: NAVIGATE → Écran détail"."""
+    described: list[str] = []
+    for key in ("reactions", "interactions"):
+        raw = obj.get(key)
+        if not isinstance(raw, list):
+            continue
+        for reaction in raw:
+            if not isinstance(reaction, dict):
+                continue
+            trigger = reaction.get("trigger")
+            trigger_type = (to_text(trigger.get("type")) if isinstance(trigger, dict) else to_text(trigger)) or "TRIGGER"
+            actions = reaction.get("actions")
+            if not isinstance(actions, list):
+                actions = [reaction.get("action")]
+            actions_text = ", ".join(
+                _describe_action(action, node_names) for action in actions if isinstance(action, dict)
+            )
+            described.append(f"{trigger_type}: {actions_text or 'action non précisée'}")
+    return described
+
+
+def _format_properties(properties: dict[str, str]) -> str:
+    return ", ".join(f"{name}={value}" for name, value in properties.items())
 
 
 def analyze_json_structure(data: Any) -> dict[str, Any]:
@@ -195,20 +398,32 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
     variant_signals: set[str] = set()
     interaction_clues: set[str] = set()
     component_hierarchy: list[dict[str, Any]] = []
+    hidden_elements: list[str] = []
+    interactions: list[dict[str, str]] = []
+    component_properties: list[dict[str, str]] = []
+    variant_sets: list[dict[str, Any]] = []
     node_count = 0
+    node_names = collect_node_names(data)
+    group_roots = {
+        id(group): (f"group_{index}", to_text(group.get("name")) or f"Groupe {index}")
+        for index, group in enumerate(_find_group_roots(data), start=1)
+    }
+    use_hierarchy_groups = bool(group_roots)
 
-    def visit(node: Any, path: str) -> None:
+    def visit(node: Any, path: str, group: tuple[str, str] | None = None) -> None:
         nonlocal node_count
         node_count += 1
 
         if isinstance(node, list):
             for index, item in enumerate(node):
-                visit(item, f"{path}[{index}]")
+                visit(item, f"{path}[{index}]", group)
             return
 
         obj = as_dict(node)
         if not obj:
             return
+
+        group = group_roots.get(id(obj), group)
 
         name = to_text(obj.get("name")) or to_text(obj.get("title")) or to_text(obj.get("id")) or path
 
@@ -218,11 +433,36 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
             to_text(obj.get("label"))
             or to_text(obj.get("text"))
             or text_characters
+            or to_text(obj.get("characters"))
             or to_text(obj.get("title"))
         )
         placeholder = to_text(obj.get("placeholder"))
         detected_type = detect_type(obj)
-        searchable_text = _collect_text_signals(name, label, detected_type, placeholder, path)
+        properties = extract_component_properties(obj)
+        definitions = extract_property_definitions(obj)
+        node_interactions = extract_interactions(obj, node_names)
+        is_hidden = obj.get("visible") is False
+        properties_text = _format_properties(properties)
+        searchable_text = _collect_text_signals(name, label, detected_type, placeholder, path, properties_text)
+
+        for property_name, value in properties.items():
+            if property_name.lower() in STATE_PROPERTY_NAMES:
+                state_signals.add(value)
+            else:
+                variant_signals.add(f"{property_name}={value}")
+        if properties:
+            component_properties.append({"name": name, "properties": properties_text, "path": path})
+        if definitions:
+            variant_sets.append({"name": name, "properties": definitions, "path": path})
+            for property_name, options in definitions.items():
+                if property_name.lower() in STATE_PROPERTY_NAMES:
+                    state_signals.update(options)
+                else:
+                    variant_signals.update(f"{property_name}={option}" for option in options)
+        if is_hidden:
+            hidden_elements.append(name)
+        for interaction in node_interactions:
+            interactions.append({"source": label or name, "interaction": interaction, "path": path})
         matched_states = _extract_matching_hints(searchable_text, STATE_HINTS)
         matched_errors = _extract_matching_hints(searchable_text, ERROR_HINTS)
         matched_variants = _extract_matching_hints(searchable_text, VARIANT_HINTS)
@@ -275,6 +515,8 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
                         "placeholder": placeholder or "-",
                         "states": ", ".join(matched_states) or "-",
                         "variants": ", ".join(matched_variants) or "-",
+                        "properties": properties_text or "-",
+                        "hidden": is_hidden,
                     }
                 )
 
@@ -290,13 +532,21 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
                     "states": matched_states[:4],
                     "variants": matched_variants[:4],
                     "errors": matched_errors[:4],
+                    "properties": properties_text,
+                    "hidden": is_hidden,
+                    "interactions": node_interactions[:4],
                 }
             )
 
-        inferred_groups = infer_feature_groups(name, label, detected_type, path)
-        for group_key in inferred_groups:
+        if use_hierarchy_groups:
+            inferred_groups = [group] if group else []
+        else:
+            inferred_groups = [
+                (key, FEATURE_LABELS.get(key, key)) for key in infer_feature_groups(name, label, detected_type, path)
+            ]
+        for group_key, group_label in inferred_groups:
             bucket = feature_buckets[group_key]
-            bucket["label"] = FEATURE_LABELS.get(group_key, group_key)
+            bucket["label"] = group_label
             bucket["paths"].add(path)
             if label:
                 bucket["labels"].add(label)
@@ -318,8 +568,8 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
                 )
 
         for key, value in obj.items():
-            if isinstance(value, (dict, list)):
-                visit(value, f"{path}.{key}")
+            if key not in NON_STRUCTURAL_KEYS and isinstance(value, (dict, list)):
+                visit(value, f"{path}.{key}", group)
 
     visit(data, "$")
 
@@ -334,6 +584,8 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
 
     feature_groups = []
     for key, bucket in feature_buckets.items():
+        if not bucket["components"]:
+            continue
         feature_groups.append(
             {
                 "key": key,
@@ -346,7 +598,9 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
             }
         )
 
-    feature_groups.sort(key=lambda item: (-item["component_count"], item["label"]))
+    # Hierarchy groups keep the order of the file (reading order of the screen).
+    if not use_hierarchy_groups:
+        feature_groups.sort(key=lambda item: (-item["component_count"], item["label"]))
     component_hierarchy.sort(key=lambda item: (-item["child_count"], item["name"]))
 
     analysis = {
@@ -367,6 +621,11 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
         "error_signals": sorted(error_signals)[:20],
         "interaction_clues": sorted(interaction_clues)[:20],
         "component_hierarchy": component_hierarchy[:20],
+        "feature_group_source": "hierarchy" if use_hierarchy_groups else "keywords",
+        "component_properties": component_properties[:40],
+        "variant_sets": variant_sets[:20],
+        "hidden_elements": hidden_elements[:30],
+        "interactions": interactions[:40],
     }
     analysis["component_scope"] = classify_component_scope(analysis)
     return analysis
@@ -375,7 +634,10 @@ def analyze_json_structure(data: Any) -> dict[str, Any]:
 def classify_component_scope(analysis: dict[str, Any]) -> dict[str, Any]:
     child_counts = [item.get("child_count", 0) for item in analysis.get("component_hierarchy", [])[:8]]
     max_child_count = max(child_counts) if child_counts else 0
-    feature_group_count = len(analysis.get("feature_groups", []))
+    # Only groups with real content count: a button with an icon container is not a feature zone.
+    feature_group_count = len(
+        [group for group in analysis.get("feature_groups", []) if group.get("component_count", 0) >= 3]
+    )
     field_count = analysis.get("field_count", 0)
     action_count = analysis.get("action_count", 0)
     distinct_types = len(analysis.get("field_types", []))
@@ -509,12 +771,41 @@ def format_analysis_for_prompt_compact(
     else:
         lines.append("- Aucun groupe de feature détecté")
 
+    variant_sets = analysis.get("variant_sets", [])
+    if variant_sets:
+        lines.append("Variantes définies par les composants (Figma, componentPropertyDefinitions):")
+        for variant_set in variant_sets[:max_fields]:
+            options = " ; ".join(f"{name}: {', '.join(values)}" for name, values in variant_set["properties"].items())
+            lines.append(f"- {variant_set['name']} | {options}")
+
+    component_properties = analysis.get("component_properties", [])
+    if component_properties:
+        lines.append("Valeurs de propriétés des instances (Figma, variantProperties / componentProperties):")
+        for item in component_properties[: max_fields * 2]:
+            component_line = f"- {item['name']} | {item['properties']}"
+            if include_paths:
+                component_line += f" | path: {item['path']}"
+            lines.append(component_line)
+
+    interactions = analysis.get("interactions", [])
+    if interactions:
+        lines.append("Interactions de prototype (Figma, reactions):")
+        for item in interactions[: max_fields * 2]:
+            lines.append(f"- {item['source']} | {item['interaction']}")
+
+    hidden_elements = analysis.get("hidden_elements", [])
+    if hidden_elements:
+        lines.append(
+            "Éléments masqués dans la maquette (visible=false, souvent un état alternatif) : "
+            + " | ".join(hidden_elements[:max_labels])
+        )
+
     lines.append("Champs détectés:")
 
     if analysis["fields"]:
         for field in analysis["fields"][:max_fields]:
             field_line = (
-                f"- {field['name']} | type: {field['type']} | label: {field['label']} | placeholder: {field['placeholder']} | états: {field.get('states', '-')} | variantes: {field.get('variants', '-')}"
+                f"- {field['name']} | type: {field['type']} | label: {field['label']} | placeholder: {field['placeholder']} | états: {field.get('states', '-')} | variantes: {field.get('variants', '-')} | propriétés: {field.get('properties', '-')}"
             )
             if include_paths:
                 field_line += f" | path: {field['path']}"

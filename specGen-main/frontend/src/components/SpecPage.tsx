@@ -2,8 +2,8 @@ import { useState } from "react";
 import { FileText, Layers, Monitor } from "lucide-react";
 import { api } from "../lib/api";
 import { documentTitle, formatDateTime, formatSize, LANGUAGE_LABELS, readImageFile, readJsonFile, readTextFile, stripTitle } from "../lib/files";
-import type { FeatureImage, Language, LoadedFile, SpecResult } from "../lib/types";
-import { AddFileButton, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
+import type { DetailLevel, FeatureImage, Language, LoadedFile, SpecResult } from "../lib/types";
+import { AddFileButton, DetailLevelField, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { EmptyPanel, ExportButtons, MarkdownEditor, ProgressPanel, ResultCard } from "./ResultCard";
@@ -16,6 +16,8 @@ export interface SpecState {
   specJson: LoadedFile | null;
   image: FeatureImage | null;
   language: Language;
+  /** Missing in states saved before the field existed. */
+  detailLevel?: DetailLevel;
   result: SpecResult | null;
 }
 
@@ -53,6 +55,7 @@ export function SpecPage({
         spec_json: state.specJson?.content,
         component_library: componentLibrary?.content ?? null,
         language: state.language,
+        detail_level: state.detailLevel ?? "standard",
       });
       update({ result: { ...generated, generatedAt: new Date().toISOString() } });
       setActiveTab("preview");
@@ -168,6 +171,8 @@ export function SpecPage({
           <ComponentLibraryField file={componentLibrary} onChange={onComponentLibraryChange} sharedWith="Créer un contexte" />
 
           <LanguageField value={state.language} onChange={(language) => update({ language })} />
+
+          <DetailLevelField value={state.detailLevel ?? "standard"} onChange={(detailLevel) => update({ detailLevel })} />
         </>
       }
       footer={
