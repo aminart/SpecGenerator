@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .field-label {
+    @apply text-[15px] font-medium text-ink;
+  }
+  .hint {
+    @apply text-[13px] leading-snug text-ink-subtle;
+  }
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-navy text-white hover:bg-navy-dark disabled:bg-[#C4C8DA];
+  }
+  .btn-secondary {
+    @apply btn border-[1.5px] border-ink-body bg-white text-ink hover:bg-[#F2F3F8] disabled:opacity-50;
+  }
+  .btn-soft {
+    @apply btn bg-navy-soft text-navy hover:bg-[#E2E5F8];
+  }
+  .input-area {
+    @apply w-full rounded-lg border border-line-strong bg-white px-3 py-2 text-sm placeholder:text-ink-subtle focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy-soft;
+  }
+}
+
+.doc-prose table {
+  @apply block overflow-x-auto;
+}
+
+.doc-prose blockquote p::before,
+.doc-prose blockquote p::after {
+  content: none;
+}
