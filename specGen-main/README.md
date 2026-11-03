@@ -64,6 +64,15 @@ npm install
 npm run dev
 ```
 
+Tests (backend, sans appel au modèle : un client simulé renvoie des réponses préparées) :
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+Les tests utilisent deux exports Figma de démonstration dans `tests/fixtures` (régénérables avec `python tests/make_fixture.py`). Ils couvrent l'analyse JSON, l'allègement du JSON, les vérifications de structure, l'appel au modèle (reprise des réponses coupées, options refusées) et les routes de l'API. Le workflow GitHub « Tests » les lance à chaque push, avec la vérification des types et le build du frontend.
+
 Build de production : `cd frontend && npm run build`, puis `uvicorn main:app --app-dir backend` et ouvrir http://127.0.0.1:8000.
 
 ## API

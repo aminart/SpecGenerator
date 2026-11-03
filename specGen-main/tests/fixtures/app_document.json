@@ -1,0 +1,587 @@
+{
+  "document": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "absoluteBoundingBox": {
+      "x": 0,
+      "y": 0,
+      "width": 100,
+      "height": 40
+    },
+    "fills": [
+      {
+        "type": "SOLID",
+        "color": {
+          "r": 1,
+          "g": 1,
+          "b": 1,
+          "a": 1
+        }
+      }
+    ],
+    "strokes": [],
+    "effects": [],
+    "blendMode": "PASS_THROUGH",
+    "children": [
+      {
+        "id": "0:1",
+        "name": "Page 1",
+        "type": "CANVAS",
+        "absoluteBoundingBox": {
+          "x": 0,
+          "y": 0,
+          "width": 100,
+          "height": 40
+        },
+        "fills": [
+          {
+            "type": "SOLID",
+            "color": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            }
+          }
+        ],
+        "strokes": [],
+        "effects": [],
+        "blendMode": "PASS_THROUGH",
+        "children": [
+          {
+            "id": "1:1",
+            "name": "Login screen",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 100,
+              "height": 40
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 1,
+                  "g": 1,
+                  "b": 1,
+                  "a": 1
+                }
+              }
+            ],
+            "strokes": [],
+            "effects": [],
+            "blendMode": "PASS_THROUGH",
+            "children": [
+              {
+                "id": "2:1",
+                "name": "Header",
+                "type": "FRAME",
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 100,
+                  "height": 40
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 1,
+                      "g": 1,
+                      "b": 1,
+                      "a": 1
+                    }
+                  }
+                ],
+                "strokes": [],
+                "effects": [],
+                "blendMode": "PASS_THROUGH",
+                "children": [
+                  {
+                    "id": "2:2",
+                    "name": "Title",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 100,
+                      "height": 40
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1,
+                          "a": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "blendMode": "PASS_THROUGH",
+                    "characters": "Connexion"
+                  },
+                  {
+                    "id": "2:3",
+                    "name": "Logo",
+                    "type": "VECTOR",
+                    "absoluteBoundingBox": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 100,
+                      "height": 40
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1,
+                          "a": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "blendMode": "PASS_THROUGH"
+                  }
+                ]
+              },
+              {
+                "id": "3:1",
+                "name": "Form",
+                "type": "FRAME",
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 100,
+                  "height": 40
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 1,
+                      "g": 1,
+                      "b": 1,
+                      "a": 1
+                    }
+                  }
+                ],
+                "strokes": [],
+                "effects": [],
+                "blendMode": "PASS_THROUGH",
+                "children": [
+                  {
+                    "id": "3:2",
+                    "name": "Input email",
+                    "type": "INSTANCE",
+                    "absoluteBoundingBox": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 100,
+                      "height": 40
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1,
+                          "a": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "blendMode": "PASS_THROUGH",
+                    "componentProperties": {
+                      "State": {
+                        "type": "VARIANT",
+                        "value": "Default"
+                      },
+                      "Show helper#12:3": {
+                        "type": "BOOLEAN",
+                        "value": false
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "3:3",
+                        "name": "Label",
+                        "type": "TEXT",
+                        "absoluteBoundingBox": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 100,
+                          "height": 40
+                        },
+                        "fills": [
+                          {
+                            "type": "SOLID",
+                            "color": {
+                              "r": 1,
+                              "g": 1,
+                              "b": 1,
+                              "a": 1
+                            }
+                          }
+                        ],
+                        "strokes": [],
+                        "effects": [],
+                        "blendMode": "PASS_THROUGH",
+                        "characters": "Email"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "3:4",
+                    "name": "Input password",
+                    "type": "INSTANCE",
+                    "absoluteBoundingBox": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 100,
+                      "height": 40
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1,
+                          "a": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "blendMode": "PASS_THROUGH",
+                    "componentProperties": {
+                      "State": {
+                        "type": "VARIANT",
+                        "value": "Focused"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "3:5",
+                        "name": "Label",
+                        "type": "TEXT",
+                        "absoluteBoundingBox": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 100,
+                          "height": 40
+                        },
+                        "fills": [
+                          {
+                            "type": "SOLID",
+                            "color": {
+                              "r": 1,
+                              "g": 1,
+                              "b": 1,
+                              "a": 1
+                            }
+                          }
+                        ],
+                        "strokes": [],
+                        "effects": [],
+                        "blendMode": "PASS_THROUGH",
+                        "characters": "Mot de passe"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "3:6",
+                    "name": "Error message",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 100,
+                      "height": 40
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1,
+                          "a": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "blendMode": "PASS_THROUGH",
+                    "characters": "Identifiants invalides",
+                    "visible": false
+                  },
+                  {
+                    "id": "3:7",
+                    "name": "Button/Primary",
+                    "type": "INSTANCE",
+                    "absoluteBoundingBox": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 100,
+                      "height": 40
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1,
+                          "a": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "blendMode": "PASS_THROUGH",
+                    "componentProperties": {
+                      "Type": {
+                        "type": "VARIANT",
+                        "value": "Primary"
+                      }
+                    },
+                    "reactions": [
+                      {
+                        "trigger": {
+                          "type": "ON_CLICK"
+                        },
+                        "actions": [
+                          {
+                            "type": "NODE",
+                            "destinationId": "9:1",
+                            "navigation": "NAVIGATE"
+                          }
+                        ]
+                      }
+                    ],
+                    "children": [
+                      {
+                        "id": "3:8",
+                        "name": "Label",
+                        "type": "TEXT",
+                        "absoluteBoundingBox": {
+                          "x": 0,
+                          "y": 0,
+                          "width": 100,
+                          "height": 40
+                        },
+                        "fills": [
+                          {
+                            "type": "SOLID",
+                            "color": {
+                              "r": 1,
+                              "g": 1,
+                              "b": 1,
+                              "a": 1
+                            }
+                          }
+                        ],
+                        "strokes": [],
+                        "effects": [],
+                        "blendMode": "PASS_THROUGH",
+                        "characters": "Se connecter"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "4:1",
+                "name": "Footer",
+                "type": "FRAME",
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 100,
+                  "height": 40
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 1,
+                      "g": 1,
+                      "b": 1,
+                      "a": 1
+                    }
+                  }
+                ],
+                "strokes": [],
+                "effects": [],
+                "blendMode": "PASS_THROUGH",
+                "children": [
+                  {
+                    "id": "4:2",
+                    "name": "Link",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 100,
+                      "height": 40
+                    },
+                    "fills": [
+                      {
+                        "type": "SOLID",
+                        "color": {
+                          "r": 1,
+                          "g": 1,
+                          "b": 1,
+                          "a": 1
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "effects": [],
+                    "blendMode": "PASS_THROUGH",
+                    "characters": "Mot de passe oublié ?"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "9:1",
+            "name": "Home",
+            "type": "FRAME",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 100,
+              "height": 40
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 1,
+                  "g": 1,
+                  "b": 1,
+                  "a": 1
+                }
+              }
+            ],
+            "strokes": [],
+            "effects": [],
+            "blendMode": "PASS_THROUGH",
+            "children": [
+              {
+                "id": "9:2",
+                "name": "Title",
+                "type": "TEXT",
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 100,
+                  "height": 40
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 1,
+                      "g": 1,
+                      "b": 1,
+                      "a": 1
+                    }
+                  }
+                ],
+                "strokes": [],
+                "effects": [],
+                "blendMode": "PASS_THROUGH",
+                "characters": "Accueil"
+              }
+            ]
+          },
+          {
+            "id": "5:1",
+            "name": "Button",
+            "type": "COMPONENT_SET",
+            "absoluteBoundingBox": {
+              "x": 0,
+              "y": 0,
+              "width": 100,
+              "height": 40
+            },
+            "fills": [
+              {
+                "type": "SOLID",
+                "color": {
+                  "r": 1,
+                  "g": 1,
+                  "b": 1,
+                  "a": 1
+                }
+              }
+            ],
+            "strokes": [],
+            "effects": [],
+            "blendMode": "PASS_THROUGH",
+            "componentPropertyDefinitions": {
+              "Type": {
+                "type": "VARIANT",
+                "variantOptions": [
+                  "Primary",
+                  "Secondary",
+                  "Ghost"
+                ]
+              },
+              "State": {
+                "type": "VARIANT",
+                "variantOptions": [
+                  "Default",
+                  "Hover",
+                  "Disabled"
+                ]
+              }
+            },
+            "children": [
+              {
+                "id": "5:2",
+                "name": "Type=Primary",
+                "type": "COMPONENT",
+                "absoluteBoundingBox": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 100,
+                  "height": 40
+                },
+                "fills": [
+                  {
+                    "type": "SOLID",
+                    "color": {
+                      "r": 1,
+                      "g": 1,
+                      "b": 1,
+                      "a": 1
+                    }
+                  }
+                ],
+                "strokes": [],
+                "effects": [],
+                "blendMode": "PASS_THROUGH",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
