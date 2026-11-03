@@ -70,7 +70,8 @@ class ContextRequest(BaseModel):
     json_sources: list[SourceFile] = Field(default_factory=list)
     component_library: Any | None = None
     language: Language = "fr"
-    detail_level: DetailLevel = "standard"
+    # The interface always wants the most detailed document.
+    detail_level: DetailLevel = "detailed"
     mode: Literal["standard", "light"] = "standard"
 
 
@@ -87,7 +88,8 @@ class SpecRequest(BaseModel):
     spec_json: Any
     component_library: Any | None = None
     language: Language = "fr"
-    detail_level: DetailLevel = "standard"
+    # The interface always wants the most detailed document.
+    detail_level: DetailLevel = "detailed"
 
 
 class MarkdownDocument(BaseModel):

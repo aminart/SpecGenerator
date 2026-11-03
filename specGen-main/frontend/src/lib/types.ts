@@ -1,5 +1,4 @@
 export type Language = "fr" | "en";
-export type DetailLevel = "compact" | "standard" | "detailed";
 export type DocKind = "context" | "spec";
 export type Page = "home" | "markdown" | "context" | "spec" | "settings";
 

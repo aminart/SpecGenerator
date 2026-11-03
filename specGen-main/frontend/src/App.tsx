@@ -13,8 +13,8 @@ import { unwrapMarkdownFence } from "./lib/files";
 import { usePersistentState } from "./lib/usePersistentState";
 
 const INITIAL_MARKDOWN: MarkdownState = { docs: [], activeDocId: null };
-const INITIAL_CONTEXT: ContextState = { markdownFiles: [], jsonFiles: [], language: "fr", detailLevel: "standard", result: null, flowMermaid: "" };
-const INITIAL_SPEC: SpecState = { importedContext: null, specJson: null, image: null, language: "fr", detailLevel: "standard", result: null };
+const INITIAL_CONTEXT: ContextState = { markdownFiles: [], jsonFiles: [], language: "fr", result: null, flowMermaid: "" };
+const INITIAL_SPEC: SpecState = { importedContext: null, specJson: null, image: null, language: "fr", result: null };
 
 export default function App() {
   return (

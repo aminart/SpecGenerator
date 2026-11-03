@@ -4,8 +4,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, downloadText } from "../lib/api";
 import { documentTitle, formatDateTime, formatSize, LANGUAGE_LABELS, readJsonFile, readTextFile, stripTitle } from "../lib/files";
-import type { ContextResult, DetailLevel, Language, LoadedFile } from "../lib/types";
-import { AddFileButton, DetailLevelField, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
+import type { ContextResult, Language, LoadedFile } from "../lib/types";
+import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { MermaidDiagram, mermaidError } from "./MermaidDiagram";
@@ -17,8 +17,6 @@ export interface ContextState {
   markdownFiles: LoadedFile[];
   jsonFiles: LoadedFile[];
   language: Language;
-  /** Missing in states saved before the field existed. */
-  detailLevel?: DetailLevel;
   result: ContextResult | null;
   flowMermaid: string;
 }
@@ -65,7 +63,6 @@ export function ContextPage({
         json_sources: state.jsonFiles,
         component_library: componentLibrary?.content ?? null,
         language: state.language,
-        detail_level: state.detailLevel ?? "standard",
       });
       update({ result: { ...generated, generatedAt: new Date().toISOString() }, flowMermaid: "" });
       setActiveTab("preview");
@@ -147,8 +144,6 @@ export function ContextPage({
           <ComponentLibraryField file={componentLibrary} onChange={onComponentLibraryChange} sharedWith="Générer une spécification" />
 
           <LanguageField value={state.language} onChange={(language) => update({ language })} />
-
-          <DetailLevelField value={state.detailLevel ?? "standard"} onChange={(detailLevel) => update({ detailLevel })} />
         </>
       }
       footer={
