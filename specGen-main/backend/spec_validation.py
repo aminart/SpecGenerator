@@ -23,6 +23,8 @@ EXPECTED_HEADINGS = {
         (3, "Moyens d’accès"),
         (2, "Variantes de la feature"),
         (2, "Détail de la feature"),
+        (2, "Textes de l’interface"),
+        (2, "Données affichées"),
         (2, "Erreurs possibles"),
         (2, "Hypothèses"),
         (2, "Questions ouvertes"),
@@ -34,6 +36,8 @@ EXPECTED_HEADINGS = {
         (3, "Ways of access"),
         (2, "Feature variants"),
         (2, "Feature details"),
+        (2, "Interface texts"),
+        (2, "Displayed data"),
         (2, "Possible errors"),
         (2, "Assumptions"),
         (2, "Open questions"),
@@ -44,10 +48,14 @@ EXPECTED_TABLES = {
     "fr": {
         "Variantes de la feature": ["ID", "Variante", "Contexte d’affichage", "Différences visuelles / comportementales", "Conditions / règles"],
         "Détail de la feature": ["ID", "Composant Figma", "Type de composant", "État par défaut", "Comportement", "Niveau de confiance"],
+        "Textes de l’interface": ["Composant Figma", "Texte", "Usage"],
+        "Données affichées": ["Donnée", "Composant Figma", "Format", "Cas vide / long"],
     },
     "en": {
         "Feature variants": ["ID", "Variant", "Display context", "Visual / behavioral differences", "Conditions / rules"],
         "Feature details": ["ID", "Figma component", "Component type", "Default state", "Behavior", "Confidence level"],
+        "Interface texts": ["Figma component", "Text", "Usage"],
+        "Displayed data": ["Data", "Figma component", "Format", "Empty / long case"],
     },
 }
 
@@ -152,44 +160,87 @@ def collect_json_names(data: Any) -> set[str]:
     return names
 
 
-def unknown_component_names(markdown: str, language: str, json_names: set[str]) -> list[str]:
-    """Names in the Figma component column that match no `name` of the JSON."""
-    if not json_names:
-        return []
-    lang = "fr" if language == "fr" else "en"
-    title, columns = next(
-        (title, columns) for title, columns in EXPECTED_TABLES[lang].items() if title in ("Détail de la feature", "Feature details")
-    )
+def _table_column(markdown: str, title: str, column: str) -> list[str]:
     lines = _find_section(markdown, title)
     table = _first_table(lines) if lines is not None else None
     if table is None:
         return []
     header, rows = table
     normalized_header = [normalize_name(cell) for cell in header]
-    column = normalize_name(columns[1])
-    if column not in normalized_header:
+    if normalize_name(column) not in normalized_header:
         return []
-    index = normalized_header.index(column)
+    index = normalized_header.index(normalize_name(column))
+    return [row[index] for row in rows if index < len(row)]
 
+
+_FIGMA_COLUMNS = {"fr": "Composant Figma", "en": "Figma component"}
+_TEXTS_TABLE = {"fr": ("Textes de l’interface", "Texte"), "en": ("Interface texts", "Text")}
+
+
+def unknown_component_names(markdown: str, language: str, json_names: set[str]) -> list[str]:
+    """Names in the Figma component columns that match no `name` of the JSON."""
+    if not json_names:
+        return []
+    lang = "fr" if language == "fr" else "en"
     unknown: list[str] = []
-    for row in rows:
-        if index >= len(row):
+    for title, columns in EXPECTED_TABLES[lang].items():
+        if _FIGMA_COLUMNS[lang] not in columns:
             continue
-        cell = row[index]
-        if normalize_name(cell) in _EMPTY_CELL or normalize_name(cell) in json_names:
-            continue
-        # A row may group repeated elements: "Input email, Input password".
-        parts = [part for part in re.split(r"\s*(?:,|;|<br\s*/?>|\s\+\s)\s*", cell) if normalize_name(part) not in _EMPTY_CELL]
-        if not parts or any(normalize_name(part) not in json_names for part in parts):
-            if cell not in unknown:
+        for cell in _table_column(markdown, title, _FIGMA_COLUMNS[lang]):
+            if normalize_name(cell) in _EMPTY_CELL or normalize_name(cell) in json_names:
+                continue
+            # A row may group repeated elements: "Input email, Input password".
+            parts = [part for part in re.split(r"\s*(?:,|;|<br\s*/?>|\s\+\s)\s*", cell) if normalize_name(part) not in _EMPTY_CELL]
+            if (not parts or any(normalize_name(part) not in json_names for part in parts)) and cell not in unknown:
                 unknown.append(cell)
     return unknown
 
 
-def validate_spec(markdown: str, language: str, json_names: set[str]) -> dict[str, list[str]]:
+def collect_json_texts(data: Any) -> set[str]:
+    """Every visible text of the JSON (characters, labels, titles, placeholders), normalized."""
+    texts: set[str] = set()
+
+    def collect(value: Any) -> None:
+        if isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for key in ("characters", "label", "title", "placeholder", "text", "value"):
+                item = value.get(key)
+                if isinstance(item, str) and item.strip():
+                    texts.add(normalize_name(item))
+            for key, item in value.items():
+                if isinstance(item, (dict, list)) and key not in NON_STRUCTURAL_KEYS:
+                    collect(item)
+
+    collect(data)
+    return texts
+
+
+def unknown_texts(markdown: str, language: str, json_texts: set[str]) -> list[str]:
+    """Texts of the interface texts table that are not copied from the JSON."""
+    if not json_texts:
+        return []
+    lang = "fr" if language == "fr" else "en"
+    title, column = _TEXTS_TABLE[lang]
+    unknown: list[str] = []
+    for cell in _table_column(markdown, title, column):
+        text = normalize_name(cell.strip().strip("«»\"“”").strip())
+        if text in _EMPTY_CELL or text in json_texts:
+            continue
+        # A text may be a part of a longer JSON text, or several texts may share a row.
+        if any(text in candidate for candidate in json_texts):
+            continue
+        if cell not in unknown:
+            unknown.append(cell)
+    return unknown
+
+
+def validate_spec(markdown: str, language: str, json_names: set[str], json_texts: set[str] | None = None) -> dict[str, list[str]]:
     return {
         "structure": check_structure(markdown, language),
         "unknown_components": unknown_component_names(markdown, language, json_names),
+        "unknown_texts": unknown_texts(markdown, language, json_texts or set()),
     }
 
 
@@ -208,6 +259,12 @@ def format_issues_for_model(issues: dict[str, list[str]], language: str) -> str:
                 "Remplacez chacune par le `name` exact du calque dans le JSON. Si la ligne n’est pas appuyée par le "
                 f"JSON, mettez un tiret (-) dans cette colonne et la confiance {low}, ou supprimez la ligne."
             )
+        if issues.get("unknown_texts"):
+            texts = ", ".join(f"« {text} »" for text in issues["unknown_texts"])
+            lines.append(
+                f"- Ces textes du tableau Textes de l’interface ne figurent pas dans le JSON : {texts}. Recopiez les "
+                "textes exactement tels qu’ils sont dans le JSON, ou supprimez les lignes inventées."
+            )
         return "\n".join(lines)
 
     lines = [
@@ -222,6 +279,12 @@ def format_issues_for_model(issues: dict[str, list[str]], language: str) -> str:
             + ". Replace each with the exact `name` of the layer in the JSON. If the row is not supported by the "
             f"JSON, write a dash (-) in that column and set its confidence to {low}, or remove the row."
         )
+    if issues.get("unknown_texts"):
+        lines.append(
+            "- These texts of the Interface texts table are not in the JSON: "
+            + ", ".join(f'"{text}"' for text in issues["unknown_texts"])
+            + ". Copy the texts exactly as they are in the JSON, or remove the invented rows."
+        )
     return "\n".join(lines)
 
 
@@ -230,6 +293,7 @@ def format_warnings(issues: dict[str, list[str]]) -> list[str]:
     warnings.extend(
         f"Composant absent du JSON : « {name} » (peut-être inventé)" for name in issues["unknown_components"]
     )
+    warnings.extend(f"Texte absent du JSON : « {text} » (peut-être reformulé ou inventé)" for text in issues.get("unknown_texts", []))
     return warnings
 
 

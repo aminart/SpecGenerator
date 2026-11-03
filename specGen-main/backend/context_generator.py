@@ -52,12 +52,12 @@ def get_max_context_chars() -> int:
 def _get_expected_context_structure(language: str, context_mode: str) -> str:
     if language == "fr":
         if context_mode == "light":
-            return "# Vue d’ensemble du projet\n## Description globale\n## Parcours principaux\n# Architecture & Navigation\n## Macro layout\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Zone | Rôle | Contenu principal | Comportement / règles |\n|---|---|---|---|\n## Navigation\n# Patterns UX\n## Chargement et feedback\n# Hypothèses et questions ouvertes\n## Hypothèses\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Hypothèse | Justification | Niveau de confiance |\n|---|---|---|---|\n## Questions ouvertes\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Question | Contexte | Impact |\n|---|---|---|---|"
-        return "# Vue d’ensemble du projet\n## Vue globale de l’application\n## Description globale\n## Personas\n# Parcours utilisateur\n# Architecture & Navigation\n## Macro layout\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Zone | Rôle | Contenu principal | Comportement / règles |\n|---|---|---|---|\n## Navigation\n## Architecture de l’information\n## Présentation des sous-niveaux\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Niveau | Point d’entrée | Contenu affiché | Interaction / règle |\n|---|---|---|---|\n# Patterns UX\n## Stratégie de chargement\n## Notifications & alertes\n# Spécifications système et accessibilité\n## Grille d’espacement\n## Navigation clavier\n# Hypothèses et questions ouvertes\n## Hypothèses\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Hypothèse | Justification | Niveau de confiance |\n|---|---|---|---|\n## Questions ouvertes\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Question | Contexte | Impact |\n|---|---|---|---|"
+            return "# Vue d’ensemble du projet\n## Description globale\n## Parcours principaux\n# Architecture & Navigation\n## Liste des écrans\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Écran | Rôle | Accès depuis | Specs liées |\n|---|---|---|---|\n## Macro layout\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Zone | Rôle | Contenu principal | Comportement / règles |\n|---|---|---|---|\n## Navigation\n# Patterns UX\n## Chargement et feedback\n# Hypothèses et questions ouvertes\n## Hypothèses\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Hypothèse | Justification | Niveau de confiance |\n|---|---|---|---|\n## Questions ouvertes\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Question | Contexte | Impact |\n|---|---|---|---|"
+        return "# Vue d’ensemble du projet\n## Vue globale de l’application\n## Description globale\n## Personas\n## Glossaire métier\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Terme | Définition | Source |\n|---|---|---|\n# Parcours utilisateur\n# Architecture & Navigation\n## Liste des écrans\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Écran | Rôle | Accès depuis | Specs liées |\n|---|---|---|---|\n## Macro layout\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Zone | Rôle | Contenu principal | Comportement / règles |\n|---|---|---|---|\n## Navigation\n## Architecture de l’information\n## Présentation des sous-niveaux\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Niveau | Point d’entrée | Contenu affiché | Interaction / règle |\n|---|---|---|---|\n# Patterns UX\n## Stratégie de chargement\n## Notifications & alertes\n# Spécifications système et accessibilité\n## Grille d’espacement\n## Navigation clavier\n# Hypothèses et questions ouvertes\n## Hypothèses\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Hypothèse | Justification | Niveau de confiance |\n|---|---|---|---|\n## Questions ouvertes\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Question | Contexte | Impact |\n|---|---|---|---|"
 
     if context_mode == "light":
-        return "# Project overview\n## Global description\n## Main user flows\n# Architecture & Navigation\n## Macro layout\nUse a Markdown table with exactly these columns:\n| Zone | Role | Main content | Behavior / rules |\n|---|---|---|---|\n## Navigation pattern\n# UX patterns\n## Loading and feedback\n# Hypotheses and open questions\n## Hypotheses\nUse a Markdown table with exactly these columns:\n| ID | Hypothesis | Rationale | Confidence level |\n|---|---|---|---|\n## Open questions\nUse a Markdown table with exactly these columns:\n| ID | Question | Context | Impact |\n|---|---|---|---|"
-    return "# Project overview\n## Global view of the application\n## Global description\n## Personas\n# User flow\n# Architecture & Navigation\n## Macro layout\nUse a Markdown table with exactly these columns:\n| Zone | Role | Main content | Behavior / rules |\n|---|---|---|---|\n## Navigation pattern\n## Information architecture\n## Sub-level presentation\nUse a Markdown table with exactly these columns:\n| Level | Entry point | Displayed content | Interaction / rule |\n|---|---|---|---|\n# UX patterns\n## Loading strategy\n## Notifications & alerts\n# System specifications and accessibility\n## Spacing grid\n## Keyboard navigation\n# Hypotheses and open questions\n## Hypotheses\nUse a Markdown table with exactly these columns:\n| ID | Hypothesis | Rationale | Confidence level |\n|---|---|---|---|\n## Open questions\nUse a Markdown table with exactly these columns:\n| ID | Question | Context | Impact |\n|---|---|---|---|"
+        return "# Project overview\n## Global description\n## Main user flows\n# Architecture & Navigation\n## Screen list\nUse a Markdown table with exactly these columns:\n| Screen | Role | Accessed from | Related specs |\n|---|---|---|---|\n## Macro layout\nUse a Markdown table with exactly these columns:\n| Zone | Role | Main content | Behavior / rules |\n|---|---|---|---|\n## Navigation pattern\n# UX patterns\n## Loading and feedback\n# Hypotheses and open questions\n## Hypotheses\nUse a Markdown table with exactly these columns:\n| ID | Hypothesis | Rationale | Confidence level |\n|---|---|---|---|\n## Open questions\nUse a Markdown table with exactly these columns:\n| ID | Question | Context | Impact |\n|---|---|---|---|"
+    return "# Project overview\n## Global view of the application\n## Global description\n## Personas\n## Business glossary\nUse a Markdown table with exactly these columns:\n| Term | Definition | Source |\n|---|---|---|\n# User flow\n# Architecture & Navigation\n## Screen list\nUse a Markdown table with exactly these columns:\n| Screen | Role | Accessed from | Related specs |\n|---|---|---|---|\n## Macro layout\nUse a Markdown table with exactly these columns:\n| Zone | Role | Main content | Behavior / rules |\n|---|---|---|---|\n## Navigation pattern\n## Information architecture\n## Sub-level presentation\nUse a Markdown table with exactly these columns:\n| Level | Entry point | Displayed content | Interaction / rule |\n|---|---|---|---|\n# UX patterns\n## Loading strategy\n## Notifications & alerts\n# System specifications and accessibility\n## Spacing grid\n## Keyboard navigation\n# Hypotheses and open questions\n## Hypotheses\nUse a Markdown table with exactly these columns:\n| ID | Hypothesis | Rationale | Confidence level |\n|---|---|---|---|\n## Open questions\nUse a Markdown table with exactly these columns:\n| ID | Question | Context | Impact |\n|---|---|---|---|"
 
 
 DETAIL_LEVEL_RULES = {
@@ -113,6 +113,10 @@ _EXAMPLES = {
 Bonne ligne du tableau « Macro layout » :
 | Header | Identification et accès global | Logo, titre de l’écran, menu utilisateur | Fixe en haut sur tous les écrans ; le menu utilisateur ouvre un panneau contextuel |
 
+Bonnes lignes des tableaux « Liste des écrans » et « Glossaire métier » :
+| Connexion | Authentifier l’utilisateur | Lancement de l’application, déconnexion | Formulaire de connexion, Mot de passe oublié |
+| Dossier | Demande d’un client suivie de bout en bout | Cahier des charges, § 2.1 |
+
 Bon parcours :
 ### Parcours 1 : Se connecter
 1. L’utilisateur saisit son email et son mot de passe → les champs passent à l’état rempli.
@@ -128,6 +132,10 @@ Bonne ligne du tableau « Questions ouvertes » :
 
 Good row of the "Macro layout" table:
 | Header | Identification and global access | Logo, screen title, user menu | Fixed at the top on every screen; the user menu opens a contextual panel |
+
+Good rows of the "Screen list" and "Business glossary" tables:
+| Sign-in | Authenticate the user | App launch, sign-out | Sign-in form, Forgotten password |
+| Case | A customer request followed end to end | Requirements, § 2.1 |
 
 Good user flow:
 ### Flow 1: Sign in
@@ -204,6 +212,8 @@ TEXTS = {
 - Personas only when the documents name or clearly describe them; otherwise put them in the hypotheses.
 - Every required table stays a Markdown table, never bullets or paragraphs.
 - When the JSON was shortened (`children_omitted`, compact analysis), do not describe the omitted parts.
+- Screen list: one row per screen or main zone found in the JSON (feature groups), its role, where it is reached from, and in "Related specs" the features of that screen that will need a detailed specification.
+- Business glossary: the domain terms of the documents with their definition and the document they come from; a term defined nowhere goes in the open questions.
 - Do not quote technical paths ($.children[0]…) or ids.""",
         "no_documents": "No project documents provided.",
         "json_note": "Application JSON pruned for the prompt (no geometry, styles or ids).",
@@ -219,6 +229,8 @@ TEXTS = {
 - Des personas seulement si les documents les nomment ou les décrivent clairement ; sinon, les mettre en hypothèses.
 - Chaque tableau demandé reste un tableau Markdown, jamais des puces ou des paragraphes.
 - Quand le JSON a été raccourci (`children_omitted`, analyse compacte), ne pas décrire les parties omises.
+- Liste des écrans : une ligne par écran ou zone principale du JSON (groupes fonctionnels), son rôle, d’où on y accède, et dans « Specs liées » les features de cet écran qui demanderont une spécification détaillée.
+- Glossaire métier : les termes du domaine présents dans les documents, avec leur définition et le document d’où ils viennent ; un terme défini nulle part va dans les questions ouvertes.
 - Ne citer ni chemins techniques ($.children[0]…) ni identifiants.""",
         "no_documents": "Aucun document projet fourni.",
         "json_note": "JSON de l’application allégé pour le prompt (sans géométrie, styles ni ids).",

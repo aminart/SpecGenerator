@@ -203,7 +203,7 @@ export function SpecPage({
             {usesGeneratedContext ? " Le contexte généré à l’étape précédente est déjà pris en compte." : ""}
           </p>
           <p className="mt-2 max-w-[480px] text-[13px] leading-normal text-ink-subtle">
-            La spécification contiendra : vue d’ensemble, variantes, détail des composants, erreurs possibles, hypothèses et questions ouvertes.
+            La spécification contiendra : vue d’ensemble, variantes, détail des composants, textes de l’interface, données affichées, erreurs possibles, hypothèses et questions ouvertes.
           </p>
         </EmptyPanel>
       )}

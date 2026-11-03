@@ -17,7 +17,7 @@ from json_analysis import (
     to_text,
 )
 from markdown_cleanup import replace_json_paths_with_names, unwrap_markdown_fence
-from spec_validation import collect_json_names, format_issues_for_model, normalize_name, format_warnings, validate_spec
+from spec_validation import collect_json_names, collect_json_texts, format_issues_for_model, normalize_name, format_warnings, validate_spec
 from openai_client import complete, get_openai_client
 from templates import TEMPLATES
 
@@ -51,6 +51,17 @@ Si aucune variante fiable n’est identifiable, conserver quand même cette sect
 Utiliser un tableau Markdown avec exactement ces colonnes :
 | ID | Composant Figma | Type de composant | État par défaut | Comportement | Niveau de confiance |
 |---|---|---|---|---|---|
+
+## Textes de l’interface
+Lister tous les textes visibles du JSON (libellés, titres, placeholders, boutons, messages, y compris ceux des calques masqués), recopiés mot pour mot, dans un tableau Markdown avec exactement ces colonnes :
+| Composant Figma | Texte | Usage |
+|---|---|---|
+
+## Données affichées
+Lister les données variables affichées (valeurs saisies, contenus dynamiques, compteurs, dates, listes) dans un tableau Markdown avec exactement ces colonnes :
+| Donnée | Composant Figma | Format | Cas vide / long |
+|---|---|---|---|
+Quand le format, la source ou le cas limite ne figure pas dans les sources, l’écrire comme hypothèse. S’il n’y a aucune donnée variable, garder la section avec une seule ligne qui l’indique.
 
 ## Erreurs possibles
 Lister les erreurs potentiellement rencontrées dans cette feature.
@@ -99,6 +110,17 @@ If no reliable variant can be identified, still keep this section and add a sing
 Use a Markdown table with exactly these columns:
 | ID | Figma component | Component type | Default state | Behavior | Confidence level |
 |---|---|---|---|---|---|
+
+## Interface texts
+List every visible text of the JSON (labels, titles, placeholders, buttons, messages, including those of hidden layers), copied verbatim, in a Markdown table with exactly these columns:
+| Figma component | Text | Usage |
+|---|---|---|
+
+## Displayed data
+List the variable data shown (entered values, dynamic content, counters, dates, lists) in a Markdown table with exactly these columns:
+| Data | Figma component | Format | Empty / long case |
+|---|---|---|---|
+When the format, source or edge case is not in the sources, write it as an assumption. If there is no variable data, keep the section with a single row saying so.
 
 ## Possible errors
 List the errors that may potentially be encountered in this feature.
@@ -447,6 +469,10 @@ Bonne ligne du tableau « Détail de la feature » :
 Bonne ligne du tableau « Variantes de la feature » :
 | V2 | Erreur d’identification | Après validation avec des identifiants refusés | Message « Identifiants invalides » affiché sous le formulaire | Calque « Error message » masqué par défaut (visible=false) |
 
+Bonnes lignes des tableaux « Textes de l’interface » et « Données affichées » :
+| Button/Primary | Se connecter | Libellé du bouton de validation |
+| Email saisi | Input email | Adresse email, 254 caractères au plus (hypothèse) | Vide : placeholder « Email » ; long : texte tronqué avec points de suspension (hypothèse) |
+
 Bonne erreur :
 - **Identifiants refusés**
   - Contexte : clic sur « Se connecter » avec un mot de passe incorrect.
@@ -463,6 +489,10 @@ Avoid (JSON path instead of the Figma name, vague behavior, unjustified confiden
 
 Good row of the "Feature variants" table:
 | V2 | Sign-in error | After submitting rejected credentials | "Invalid credentials" message shown below the form | "Error message" layer hidden by default (visible=false) |
+
+Good rows of the "Interface texts" and "Displayed data" tables:
+| Button/Primary | Sign in | Label of the submit button |
+| Entered email | Input email | Email address, 254 characters at most (assumption) | Empty: "Email" placeholder; long: text truncated with an ellipsis (assumption) |
 
 Good error:
 - **Rejected credentials**
@@ -640,6 +670,7 @@ def generate_spec(
     except ValueError:
         data = None
     json_names = collect_json_names(data) if data is not None else set()
+    json_texts = collect_json_texts(data) if data is not None else set()
 
     sections = [
         _tagged("project_context", "\n\n".join(context_parts) or texts["no_context"]),
@@ -700,10 +731,10 @@ def generate_spec(
         return {"markdown": "# Error\n\nNo content returned by model.\n", "warnings": [], "corrected": False, "inventory": False}
 
     corrected = False
-    issues: dict[str, list[str]] = {"structure": [], "unknown_components": []}
+    issues: dict[str, list[str]] = {"structure": [], "unknown_components": [], "unknown_texts": []}
     if template_key == "ux_hmi_detailed":
-        issues = validate_spec(markdown, lang, json_names)
-        if issues["structure"] or issues["unknown_components"]:
+        issues = validate_spec(markdown, lang, json_names, json_texts)
+        if _issue_count(issues):
             # One correction pass with the precise list of problems; a second one rarely helps.
             try:
                 retry = complete(
@@ -720,7 +751,7 @@ def generate_spec(
                 logger.warning("Spec correction pass failed", exc_info=True)
                 fixed = ""
             if fixed.strip():
-                fixed_issues = validate_spec(fixed, lang, json_names)
+                fixed_issues = validate_spec(fixed, lang, json_names, json_texts)
                 # Keep the correction unless it made things worse.
                 if _issue_count(fixed_issues) <= _issue_count(issues):
                     markdown, issues, corrected = fixed, fixed_issues, True
@@ -734,7 +765,7 @@ def generate_spec(
 
 
 def _issue_count(issues: dict[str, list[str]]) -> int:
-    return len(issues["structure"]) + len(issues["unknown_components"])
+    return sum(len(values) for values in issues.values())
 
 
 def _clean_output(content: str | None, data: Any) -> str:
