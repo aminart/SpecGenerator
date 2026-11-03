@@ -30,9 +30,13 @@ Elle se configure dans l'écran **Paramètres** de l'application (URL, clé API,
 
 Un fichier `.env` placé à côté de l'exe (ou à la racine du projet) est prioritaire, champ par champ : voir `.env.example`.
 
-Pour la spec, le JSON de l'écran est envoyé au modèle sous une forme élaguée (sans géométrie ni styles). Sa taille maximale est de 40 000 caractères par défaut ; avec un modèle à grande fenêtre de contexte, on peut l'augmenter dans le `.env` avec `CUSTOM_MAX_JSON_CHARS=120000`. Au-delà, les longues listes et les niveaux les plus profonds sont coupés.
+Réglages de génération (facultatifs, dans le `.env`), pensés pour Mistral Small (128 000 tokens de contexte) :
 
-Pour le contexte, les documents Markdown sont limités à 40 000 caractères au total (`CUSTOM_MAX_CONTEXT_CHARS`), et le JSON de l'application à la moitié de `CUSTOM_MAX_JSON_CHARS`.
+- `CUSTOM_MAX_JSON_CHARS` (80 000 par défaut) : taille maximale du JSON d'écran envoyé pour la spec, sous forme allégée (sans géométrie ni styles). Au-delà, les longues listes puis les niveaux les plus profonds sont coupés. Le contexte en utilise la moitié pour le JSON de l'application.
+- `CUSTOM_MAX_CONTEXT_CHARS` (80 000 par défaut) : taille maximale des documents Markdown du contexte.
+- `CUSTOM_MAX_OUTPUT_TOKENS` (16 000 par défaut) : longueur maximale d'une réponse. Une réponse coupée est automatiquement poursuivie (3 fois au plus). Si le service refuse cette valeur, l'appel est refait sans.
+
+Le délai par défaut est de 300 secondes : une génération peut enchaîner plusieurs appels (inventaire, rédaction, correction).
 
 ## Templates Word
 

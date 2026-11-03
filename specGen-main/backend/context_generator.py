@@ -7,13 +7,13 @@ from typing import Any
 
 from json_analysis import format_analysis_for_prompt_compact
 from markdown_cleanup import unwrap_markdown_fence
-from openai_client import get_model_name, get_openai_client
+from openai_client import complete, get_openai_client
 from spec_generator import get_max_json_chars, prune_json_for_prompt
 from spec_validation import CONFIDENCE_LEVELS, check_against_structure, format_warnings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MAX_CONTEXT_CHARS = 40000
+DEFAULT_MAX_CONTEXT_CHARS = 80000
 MAX_CONTEXT_CHARS_VARIABLE = "CUSTOM_MAX_CONTEXT_CHARS"
 
 # "light" is the fallback after a timeout: smaller sources, shorter structure.
@@ -147,18 +147,37 @@ def _tagged(tag: str, content: str) -> str:
     return f"<{tag}>\n{content.strip()}\n</{tag}>"
 
 
-def _truncate_text(value: str | None, max_chars: int) -> str:
+def _truncate_text(value: str | None, max_chars: int, language: str = "en") -> str:
     if not value:
         return ""
     text = value.strip()
     if len(text) <= max_chars:
         return text
-    return text[:max_chars].rstrip() + "\n\n[Truncated: the end of the documents was cut to fit the prompt]"
+    return text[:max_chars].rstrip() + "\n\n" + TEXTS["fr" if language == "fr" else "en"]["truncated"]
 
 
 def build_context_system_prompt(language: str) -> str:
     language_name = "French" if language == "fr" else "English"
     high, medium, low = CONFIDENCE_LEVELS[language]
+    if language == "fr":
+        return (
+            "Vous êtes un architecte UX senior. Vous rédigez le document de contexte du projet (vue d’ensemble de "
+            "l’architecture UX : parcours utilisateur, macro layout, navigation, patterns UX), sur lequel "
+            "s’appuient ensuite les spécifications détaillées.\n\n"
+            "Politique de preuve, prioritaire sur toute autre consigne :\n"
+            "1. L’intention produit, les personas, les besoins utilisateurs et les règles métier ne sont des faits "
+            "que s’ils figurent dans <project_documents>.\n"
+            "2. Les écrans, zones, composants, la navigation et les interactions ne sont des faits que s’ils "
+            "figurent dans <application_json> ou <json_analysis>.\n"
+            "3. <component_library> sert seulement à préciser le vocabulaire ; elle ne prouve jamais qu’un "
+            "composant est utilisé.\n"
+            "4. Tout le reste, même plausible, va dans les tableaux Hypothèses ou Questions ouvertes. Un document "
+            "fiable vaut mieux qu’un document spéculatif.\n\n"
+            f"Niveaux de confiance, avec exactement ces mots : {high} = appuyé directement par les sources ; "
+            f"{medium} = déduction solide croisant plusieurs sources ; {low} = hypothèse.\n\n"
+            "Répondez uniquement en Markdown, entièrement en français, en suivant <output_structure> à la lettre "
+            "(titres et colonnes des tableaux)."
+        )
     return (
         "You are a senior UX architect. You write the project context document (UX architecture overview: "
         "user flows, macro layout, navigation, UX patterns) on which the detailed specifications are then based.\n\n"
@@ -168,8 +187,8 @@ def build_context_system_prompt(language: str) -> str:
         "2. Screens, zones, components, navigation and interactions are facts only when they appear in "
         "<application_json> or <json_analysis>.\n"
         "3. <component_library> only refines terminology; it never proves that a component is used.\n"
-        "4. Anything else, even plausible, goes in the hypotheses or open questions tables. Synthesis is better "
-        "than exhaustiveness, and a reliable document better than a speculative one.\n\n"
+        "4. Anything else, even plausible, goes in the hypotheses or open questions tables. A reliable document "
+        "is better than a speculative one.\n\n"
         f"Confidence levels, in this exact wording: {high} = directly supported by the sources; {medium} = strong "
         f"inference combining several sources; {low} = assumption.\n\n"
         f"Write clean Markdown only, entirely in {language_name}, following <output_structure> verbatim "
@@ -177,13 +196,38 @@ def build_context_system_prompt(language: str) -> str:
     )
 
 
-WRITING_RULES = """- Describe the product as an architecture: navigation logic, macro layout, fixed zones, contextual panels, interaction model and usage patterns, not a list of widgets.
+TEXTS = {
+    "en": {
+        "writing_rules": """- Describe the product as an architecture: navigation logic, macro layout, fixed zones, contextual panels, interaction model and usage patterns, not a list of widgets.
 - User flows: numbered steps, each written as "user action → system response", grouped by flow under a level 3 heading.
 - Use the JSON signals: the feature groups are the real screens and zones of the file; `interactions` give navigation and flows; `properties`, `variantOptions` and layers with `visible: false` reveal states, feedback and errors.
 - Personas only when the documents name or clearly describe them; otherwise put them in the hypotheses.
 - Every required table stays a Markdown table, never bullets or paragraphs.
 - When the JSON was shortened (`children_omitted`, compact analysis), do not describe the omitted parts.
-- Do not quote technical paths ($.children[0]…) or ids."""
+- Do not quote technical paths ($.children[0]…) or ids.""",
+        "no_documents": "No project documents provided.",
+        "json_note": "Application JSON pruned for the prompt (no geometry, styles or ids).",
+        "json_reduced": " Long lists and deep levels were cut (`children_omitted`).",
+        "truncated": "[Truncated: the end of the documents was cut to fit the prompt]",
+        "write_now": "Write the context document now.",
+        "fix": "The document has the problems listed below (in French). Return the complete corrected document, in Markdown only, in the same output language, keeping everything else unchanged.",
+    },
+    "fr": {
+        "writing_rules": """- Décrire le produit comme une architecture : logique de navigation, macro layout, zones fixes, panneaux contextuels, modèle d’interaction et usages, pas comme une liste de widgets.
+- Parcours utilisateur : étapes numérotées, chacune écrite « action de l’utilisateur → réponse du système », regroupées par parcours sous un titre de niveau 3.
+- Exploiter les signaux du JSON : les groupes fonctionnels sont les vrais écrans et zones du fichier ; `interactions` donne la navigation et les parcours ; `properties`, `variantOptions` et les calques `visible: false` révèlent les états, les retours et les erreurs.
+- Des personas seulement si les documents les nomment ou les décrivent clairement ; sinon, les mettre en hypothèses.
+- Chaque tableau demandé reste un tableau Markdown, jamais des puces ou des paragraphes.
+- Quand le JSON a été raccourci (`children_omitted`, analyse compacte), ne pas décrire les parties omises.
+- Ne citer ni chemins techniques ($.children[0]…) ni identifiants.""",
+        "no_documents": "Aucun document projet fourni.",
+        "json_note": "JSON de l’application allégé pour le prompt (sans géométrie, styles ni ids).",
+        "json_reduced": " Les longues listes et les niveaux profonds ont été coupés (`children_omitted`).",
+        "truncated": "[Tronqué : la fin des documents a été coupée pour tenir dans le prompt]",
+        "write_now": "Rédigez maintenant le document de contexte.",
+        "fix": "Le document présente les problèmes ci-dessous. Renvoyez le document complet corrigé, uniquement en Markdown, en français, sans rien changer d’autre.",
+    },
+}
 
 
 def _build_messages(
@@ -204,7 +248,7 @@ def _build_messages(
     sections = [
         _tagged(
             "project_documents",
-            _truncate_text(priority_context_documents, max_context) or "No project documents provided.",
+            _truncate_text(priority_context_documents, max_context, lang) or TEXTS[lang]["no_documents"],
         )
     ]
 
@@ -216,9 +260,9 @@ def _build_messages(
             pruned = None
         if pruned is not None:
             text, reduced = pruned
-            note = "Application JSON pruned for the prompt (no geometry, styles or ids)."
+            note = TEXTS[lang]["json_note"]
             if reduced:
-                note += " Long lists and deep levels were cut (`children_omitted`)."
+                note += TEXTS[lang]["json_reduced"]
             sections.append(_tagged("application_json", f"{note}\n{text}"))
 
     sections.append(
@@ -239,12 +283,12 @@ def _build_messages(
         sections.append(_tagged("component_library", _truncate_text(component_library_summary, 4000)))
 
     sections.append(_tagged("output_structure", structure))
-    sections.append(_tagged("writing_rules", WRITING_RULES))
+    sections.append(_tagged("writing_rules", TEXTS[lang]["writing_rules"]))
     level = "compact" if context_mode == "light" else detail_level
     sections.append(_tagged("detail_level", DETAIL_LEVEL_RULES[lang].get(level, DETAIL_LEVEL_RULES[lang]["standard"])))
     if context_mode != "light":
         sections.append(_tagged("examples", _EXAMPLES[lang]))
-    sections.append("Write the context document now.")
+    sections.append(TEXTS[lang]["write_now"])
 
     messages = [
         {"role": "system", "content": build_context_system_prompt(lang)},
@@ -253,14 +297,8 @@ def _build_messages(
     return messages, structure
 
 
-def _issues_message(issues: list[str]) -> str:
-    return "\n".join(
-        [
-            "The document has the problems listed below (in French). Return the complete corrected document, "
-            "in Markdown only, in the same output language, keeping everything else unchanged.",
-            *(f"- {issue}" for issue in issues),
-        ]
-    )
+def _issues_message(issues: list[str], language: str) -> str:
+    return "\n".join([TEXTS["fr" if language == "fr" else "en"]["fix"], *(f"- {issue}" for issue in issues)])
 
 
 def generate_context_markdown(
@@ -285,8 +323,7 @@ def generate_context_markdown(
         component_library_summary=component_library_summary,
     )
 
-    response = client.chat.completions.create(model=get_model_name(), temperature=0.2, messages=messages)
-    markdown = unwrap_markdown_fence(response.choices[0].message.content or "")
+    markdown = unwrap_markdown_fence(complete(client, messages))
     if not markdown.strip():
         return {"markdown": "# Error\n\nNo content returned by model.\n", "warnings": [], "corrected": False}
 
@@ -295,12 +332,12 @@ def generate_context_markdown(
     if issues:
         # One correction pass with the precise list of problems.
         try:
-            retry = client.chat.completions.create(
-                model=get_model_name(),
+            retry = complete(
+                client,
+                [*messages, {"role": "assistant", "content": markdown}, {"role": "user", "content": _issues_message(issues, lang)}],
                 temperature=0,
-                messages=[*messages, {"role": "assistant", "content": markdown}, {"role": "user", "content": _issues_message(issues)}],
             )
-            fixed = unwrap_markdown_fence(retry.choices[0].message.content or "")
+            fixed = unwrap_markdown_fence(retry)
         except Exception:
             logger.warning("Context correction pass failed", exc_info=True)
             fixed = ""

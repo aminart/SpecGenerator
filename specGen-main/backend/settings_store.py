@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from app_paths import config_dir, env_file
 
 DEFAULT_MODEL = "mistral"
-DEFAULT_TIMEOUT_SECONDS = 180.0
+DEFAULT_TIMEOUT_SECONDS = 300.0
 CERTIFICATE_FILENAME = "ca.crt"
 
 # Field name -> environment variable that overrides it.

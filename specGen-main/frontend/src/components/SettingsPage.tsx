@@ -74,7 +74,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [model, setModel] = useState("mistral");
-  const [timeout, setTimeoutValue] = useState("180");
+  const [timeout, setTimeoutValue] = useState("300");
   const [test, setTest] = useState<ConnectionTest | null>(null);
   const [busy, setBusy] = useState<"test" | "save" | "certificate" | "clear" | null>(null);
   const certificateInput = useRef<HTMLInputElement>(null);
@@ -105,7 +105,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
   }
 
   const fromEnv = (field: SettingsField) => saved.env_fields.includes(field);
-  const form: SettingsForm = { api_base: apiBase, api_key: apiKey, model, timeout: Number(timeout) || 180 };
+  const form: SettingsForm = { api_base: apiBase, api_key: apiKey, model, timeout: Number(timeout) || 300 };
   const hasKey = apiKey === null ? saved.has_api_key : apiKey.trim().length > 0;
   const isComplete = Boolean(apiBase.trim()) && hasKey && Boolean(saved.certificate);
   const isDirty = apiBase !== saved.api_base || apiKey !== null && (apiKey !== "" || saved.has_api_key) || model !== saved.model || Number(timeout) !== saved.timeout;

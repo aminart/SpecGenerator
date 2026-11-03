@@ -18,7 +18,7 @@ from json_analysis import (
 )
 from markdown_cleanup import replace_json_paths_with_names, unwrap_markdown_fence
 from spec_validation import collect_json_names, format_issues_for_model, normalize_name, format_warnings, validate_spec
-from openai_client import get_model_name, get_openai_client
+from openai_client import complete, get_openai_client
 from templates import TEMPLATES
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def _get_ux_hmi_language_rules(language: str) -> str:
     if language == "fr":
-        return """Mandatory output structure for this UX/HMI specification in French:
+        return """Structure obligatoire de cette spécification UX / HMI :
 # Nom de la feature
 
 ## Vue d’ensemble de la feature
@@ -66,12 +66,12 @@ Lister les hypothèses raisonnables déduites des données quand certains compor
 ## Questions ouvertes
 Lister les questions restant à clarifier pour finaliser la spécification, en particulier quand le JSON ou le contexte métier ne suffisent pas.
 
-Critical formatting rules:
-- All section titles, subtitles, labels and explanatory text must be in French.
-- Use exactly the French section titles written above.
-- Use exactly the table column names written above.
-- Include the Variantes de la feature section and its table even when the source data is partial.
-- Do not output English headings anywhere in the document.
+Règles de mise en forme impératives :
+- Tous les titres, sous-titres, libellés et textes sont en français.
+- Reprendre exactement les titres de sections ci-dessus.
+- Reprendre exactement les noms de colonnes ci-dessus.
+- Garder la section Variantes de la feature et son tableau même quand les sources sont partielles.
+- Aucun titre en anglais dans le document.
 """
 
     return """Mandatory output structure for this UX/HMI specification in English:
@@ -123,7 +123,7 @@ Critical formatting rules:
 """
 
 
-DEFAULT_MAX_JSON_CHARS = 40000
+DEFAULT_MAX_JSON_CHARS = 80000
 MAX_JSON_CHARS_VARIABLE = "CUSTOM_MAX_JSON_CHARS"
 # Keys kept as-is when pruning the JSON sent to the model; everything else that is a
 # scalar is dropped unless it is a short text (custom exports may name things differently).
@@ -266,10 +266,11 @@ def prune_json_for_prompt(data: Any, max_chars: int) -> tuple[str, bool] | None:
     return None
 
 
-def _build_compact_json_source_for_prompt(json_source: str, analysis: dict[str, Any]) -> str:
+def _build_compact_json_source_for_prompt(json_source: str, analysis: dict[str, Any], language: str = "en") -> str:
+    texts = TEXTS["fr" if language == "fr" else "en"]
     normalized = (json_source or "").strip()
     if not normalized:
-        return "No raw JSON source provided."
+        return texts["no_json"]
 
     max_chars = get_max_json_chars()
     try:
@@ -281,17 +282,9 @@ def _build_compact_json_source_for_prompt(json_source: str, analysis: dict[str, 
         pruned = prune_json_for_prompt(data, max_chars)
         if pruned is not None:
             text, depth_reduced = pruned
-            header = (
-                "JSON source pruned for the prompt: geometry, styling and ids removed; names, texts, "
-                "variant properties (`properties`, `variantOptions`), hidden elements (`visible: false`), "
-                "prototype interactions and hierarchy kept."
-            )
+            header = texts["pruned"]
             if depth_reduced:
-                header += (
-                    " It was shortened to fit: long lists of siblings and possibly the deepest levels were cut "
-                    "(`children_omitted` gives the number of children removed). Do not assume that omitted "
-                    "children differ from the ones kept; rely on the structured analysis for them."
-                )
+                header += texts["pruned_reduced"]
             return f"{header}\n{text}"
     elif len(normalized) <= max_chars:
         return normalized
@@ -306,14 +299,7 @@ def _build_compact_json_source_for_prompt(json_source: str, analysis: dict[str, 
         max_placeholders=10,
     )
 
-    return "\n".join(
-        [
-            "Raw JSON omitted because the source is too large for reliable model processing.",
-            "Use the structured analysis below as the canonical source for inference.",
-            "Compact source summary:",
-            compact_analysis,
-        ]
-    )
+    return "\n".join([*texts["json_omitted"], compact_analysis])
 
 
 _CONFIDENCE_LEVELS = {"fr": ("Élevé", "Moyen", "Faible"), "en": ("High", "Medium", "Low")}
@@ -366,9 +352,87 @@ DETAIL_LEVEL_RULES = {
 }
 
 SCOPE_RULES = {
-    "atomic_component": "Atomic component: keep the specification concise and focused on this single element, its states and its direct behavior.",
-    "composite_component": "Composite component: document the root component and its significant sub-components, how they relate and their internal interaction logic.",
-    "feature_zone": "Feature zone: document the target as a functional block with its main internal components, user intent, ways of access and structural variants.",
+    "en": {
+        "atomic_component": "Atomic component: focus the specification on this single element, all its states and its direct behavior.",
+        "composite_component": "Composite component: document the root component and its significant sub-components, how they relate and their internal interaction logic.",
+        "feature_zone": "Feature zone: document the target as a functional block with its main internal components, user intent, ways of access and structural variants.",
+    },
+    "fr": {
+        "atomic_component": "Composant atomique : centrer la spécification sur ce seul élément, tous ses états et son comportement direct.",
+        "composite_component": "Composant composite : documenter le composant racine et ses sous-composants significatifs, leurs relations et leur logique d’interaction interne.",
+        "feature_zone": "Zone fonctionnelle : documenter la cible comme un bloc fonctionnel, avec ses principaux composants internes, l’intention utilisateur, les moyens d’accès et les variantes structurelles.",
+    },
+}
+
+# Instructions are written in the output language: a small model then keeps that language
+# more reliably. Tag names stay in English in both.
+TEXTS = {
+    "en": {
+        "no_context": "No project context provided.",
+        "detected_scope": "Detected scope: {}",
+        "why": "Why: {}",
+        "focus": "Focus on the component {} and its direct substructure rather than the whole screen.",
+        "focus_path": "Its location in the JSON (strongest locator): {}",
+        "custom_template": "Custom template to follow:",
+        "write_now": "Write the specification now.",
+        "writing_rules": [
+            "- Organize the document by feature and UI zone, not as a raw list of fields; do not paraphrase the JSON mechanically.",
+            "- Figma component column: the exact layer or component `name` from the JSON (e.g. Button/Primary, Input email). Never a JSON path, never the words JSON or analysis. A row supported only by the project context gets a dash (-).",
+            "- Use the Figma signals: `properties` and `variantOptions` feed the variants table and the states; layers with `visible: false` are usually alternative states or error messages; `interactions` give the behaviors and the ways of access.",
+            "- Each row of the feature details table gets a confidence level; {low} rows must match an item in the assumptions section.",
+            "- When the JSON was shortened (`children_omitted`, compact summary), do not describe the omitted parts beyond what the analysis states.",
+            "- Always include the assumptions and open questions sections, stating that none was identified when that is the case.",
+        ],
+        "inventory_rule": "- <component_inventory> lists what the JSON contains, zone by zone: every component in it must be covered by the feature details table (repeated ones grouped in one row).",
+        "pruned": (
+            "JSON source pruned for the prompt: geometry, styling and ids removed; names, texts, variant properties "
+            "(`properties`, `variantOptions`), hidden elements (`visible: false`), prototype interactions and hierarchy kept."
+        ),
+        "pruned_reduced": (
+            " It was shortened to fit: long lists of siblings and possibly the deepest levels were cut "
+            "(`children_omitted` gives the number of children removed). Do not assume that omitted children differ "
+            "from the ones kept; rely on the structured analysis for them."
+        ),
+        "no_json": "No raw JSON source provided.",
+        "json_omitted": [
+            "Raw JSON omitted because the source is too large for reliable model processing.",
+            "Use the structured analysis below as the canonical source for inference.",
+            "Compact source summary:",
+        ],
+    },
+    "fr": {
+        "no_context": "Aucun contexte projet fourni.",
+        "detected_scope": "Portée détectée : {}",
+        "why": "Pourquoi : {}",
+        "focus": "Centrer la spécification sur le composant {} et sa sous-structure directe, pas sur tout l’écran.",
+        "focus_path": "Son emplacement dans le JSON (repère le plus fiable) : {}",
+        "custom_template": "Modèle personnalisé à suivre :",
+        "write_now": "Rédigez maintenant la spécification.",
+        "writing_rules": [
+            "- Organiser le document par feature et par zone d’interface, pas comme une liste brute de champs ; ne pas paraphraser le JSON.",
+            "- Colonne Composant Figma : le `name` exact du calque ou du composant dans le JSON (ex. Button/Primary, Input email). Jamais un chemin JSON, jamais les mots JSON ou analyse. Une ligne appuyée seulement par le contexte projet reçoit un tiret (-).",
+            "- Exploiter les signaux Figma : `properties` et `variantOptions` alimentent le tableau des variantes et les états ; les calques `visible: false` sont en général des états alternatifs ou des messages d’erreur ; `interactions` donne les comportements et les moyens d’accès.",
+            "- Chaque ligne du tableau Détail de la feature reçoit un niveau de confiance ; chaque ligne {low} correspond à une entrée de la section Hypothèses.",
+            "- Quand le JSON a été raccourci (`children_omitted`, résumé compact), ne pas décrire les parties omises au-delà de ce que dit l’analyse.",
+            "- Toujours inclure les sections Hypothèses et Questions ouvertes, en indiquant qu’aucun élément n’a été identifié le cas échéant.",
+        ],
+        "inventory_rule": "- <component_inventory> liste ce que contient le JSON, zone par zone : chacun de ses composants doit apparaître dans le tableau Détail de la feature (les éléments répétés regroupés sur une ligne).",
+        "pruned": (
+            "JSON allégé pour le prompt : géométrie, styles et ids retirés ; noms, textes, propriétés de variantes "
+            "(`properties`, `variantOptions`), éléments masqués (`visible: false`), interactions de prototype et hiérarchie conservés."
+        ),
+        "pruned_reduced": (
+            " Il a été raccourci : les longues listes d’éléments frères, et parfois les niveaux les plus profonds, ont été "
+            "coupés (`children_omitted` donne le nombre d’enfants retirés). Ne pas supposer que les enfants omis diffèrent "
+            "de ceux conservés ; s’appuyer sur l’analyse structurée pour eux."
+        ),
+        "no_json": "Aucun JSON fourni.",
+        "json_omitted": [
+            "JSON brut omis : la source est trop volumineuse pour être traitée de façon fiable.",
+            "Utiliser l’analyse structurée ci-dessous comme source de référence.",
+            "Résumé compact de la source :",
+        ],
+    },
 }
 
 _EXAMPLES = {
@@ -479,10 +543,9 @@ def _normalize_name(value: Any) -> str:
 def extract_component_inventory(client: Any, screen_json: str, analysis_text: str, json_names: set[str]) -> str | None:
     """First pass for feature zones: an inventory of what the JSON contains, so that the
     writing pass covers every component instead of picking a few."""
-    response = client.chat.completions.create(
-        model=get_model_name(),
-        temperature=0,
-        messages=[
+    content = complete(
+        client,
+        [
             {"role": "system", "content": INVENTORY_SYSTEM_PROMPT},
             {
                 "role": "user",
@@ -491,8 +554,10 @@ def extract_component_inventory(client: Any, screen_json: str, analysis_text: st
                 ),
             },
         ],
+        temperature=0,
+        json_mode=True,
     )
-    inventory = _parse_json_object(response.choices[0].message.content or "")
+    inventory = _parse_json_object(content)
     if not inventory:
         return None
     inventory = _filter_inventory(inventory, json_names)
@@ -508,6 +573,24 @@ def _tagged(tag: str, content: str) -> str:
 def build_spec_system_prompt(language: str) -> str:
     language_name = "French" if language == "fr" else "English"
     high, medium, low = _CONFIDENCE_LEVELS["fr" if language == "fr" else "en"]
+    if language == "fr":
+        return (
+            "Vous êtes un rédacteur senior de spécifications UX / HMI. Vous écrivez des documents de passation "
+            "design vers développement, relus par le produit, le design, les développeurs et la recette.\n\n"
+            "Politique de preuve, prioritaire sur toute autre consigne :\n"
+            "1. L’interface visible (composants, textes, états, variantes, interactions) n’est un fait que si elle "
+            "figure dans <screen_json> ou <json_analysis>.\n"
+            "2. L’intention produit (objectif, besoin utilisateur, règle métier) n’est un fait que si elle figure "
+            "dans <project_context>.\n"
+            "3. <component_library> sert seulement à préciser le vocabulaire et les états standard ; elle ne prouve "
+            "jamais qu’un composant est présent dans la feature.\n"
+            "4. Tout le reste, même plausible ou habituel, est une hypothèse ou une question ouverte. Une "
+            "spécification fiable vaut mieux qu’une spécification spéculative.\n\n"
+            f"Niveaux de confiance, avec exactement ces mots : {high} = appuyé directement par le JSON ou le "
+            f"contexte projet ; {medium} = déduction solide croisant plusieurs sources ; {low} = hypothèse.\n\n"
+            "Répondez uniquement en Markdown, entièrement en français, en suivant <output_structure> à la lettre "
+            "(titres et colonnes des tableaux)."
+        )
     return (
         "You are a senior UX/HMI specification writer. You write design-to-development handoff documents "
         "that product, design, engineering and QA review.\n\n"
@@ -517,8 +600,8 @@ def build_spec_system_prompt(language: str) -> str:
         "2. Product intent (goal, user need, business rule) is a fact only when it appears in <project_context>.\n"
         "3. <component_library> only refines terminology and standard states; it never proves that a component "
         "is present in the feature.\n"
-        "4. Anything else, even plausible or conventional, is an assumption or an open question. A shorter "
-        "reliable specification is better than a detailed speculative one.\n\n"
+        "4. Anything else, even plausible or conventional, is an assumption or an open question. A reliable "
+        "specification is better than a speculative one.\n\n"
         f"Confidence levels, in this exact wording: {high} = directly supported by the JSON or the project "
         f"context; {medium} = strong inference combining several sources; {low} = assumption.\n\n"
         f"Write clean Markdown only, entirely in {language_name}, following <output_structure> verbatim "
@@ -549,7 +632,8 @@ def generate_spec(
     context_parts = [part.strip() for part in (priority_context_documents, business_context) if part and part.strip()]
     if len(context_parts) == 2 and context_parts[1] in context_parts[0]:
         context_parts = context_parts[:1]
-    screen_json = _build_compact_json_source_for_prompt(json_source, analysis)
+    texts = TEXTS[lang]
+    screen_json = _build_compact_json_source_for_prompt(json_source, analysis, lang)
     analysis_text = format_analysis_for_prompt(analysis)
     try:
         data = json.loads(json_source) if json_source and json_source.strip() else None
@@ -558,7 +642,7 @@ def generate_spec(
     json_names = collect_json_names(data) if data is not None else set()
 
     sections = [
-        _tagged("project_context", "\n\n".join(context_parts) or "No project context provided."),
+        _tagged("project_context", "\n\n".join(context_parts) or texts["no_context"]),
         _tagged("screen_json", screen_json),
         _tagged("json_analysis", analysis_text),
     ]
@@ -577,17 +661,15 @@ def generate_spec(
 
     target_lines = []
     if component_scope_label:
-        target_lines.append(f"Detected scope: {component_scope_label}")
+        target_lines.append(texts["detected_scope"].format(component_scope_label))
     if component_scope_rationale:
-        target_lines.append(f"Why: {component_scope_rationale}")
-    if scope_key in SCOPE_RULES:
-        target_lines.append(SCOPE_RULES[scope_key])
+        target_lines.append(texts["why"].format(component_scope_rationale))
+    if scope_key in SCOPE_RULES[lang]:
+        target_lines.append(SCOPE_RULES[lang][scope_key])
     if component_focus_label:
-        target_lines.append(
-            f"Focus on the component {component_focus_label} and its direct substructure rather than the whole screen."
-        )
+        target_lines.append(texts["focus"].format(component_focus_label))
     if component_focus_path:
-        target_lines.append(f"Its location in the JSON (strongest locator): {component_focus_path}")
+        target_lines.append(texts["focus_path"].format(component_focus_path))
     if target_lines:
         sections.append(_tagged("target", "\n".join(target_lines)))
 
@@ -596,43 +678,24 @@ def generate_spec(
     else:
         output_structure = TEMPLATES[template_key]["prompt"]
     if custom_template and custom_template.strip():
-        output_structure += f"\n\nCustom template to follow:\n{custom_template.strip()}"
+        output_structure += f"\n\n{texts['custom_template']}\n{custom_template.strip()}"
     sections.append(_tagged("output_structure", output_structure))
 
     low = _CONFIDENCE_LEVELS[lang][2]
-    sections.append(
-        _tagged(
-            "writing_rules",
-            "\n".join(
-                [
-                    "- Organize the document by feature and UI zone, not as a raw list of fields; do not paraphrase the JSON mechanically.",
-                    "- Figma component column: the exact layer or component `name` from the JSON (e.g. Button/Primary, Input email). Never a JSON path, never the words JSON or analysis. A row supported only by the project context gets a dash (-).",
-                    "- Use the Figma signals: `properties` and `variantOptions` feed the variants table and the states; layers with `visible: false` are usually alternative states or error messages; `interactions` give the behaviors and the ways of access.",
-                    f"- Each row of the feature details table gets a confidence level; {low} rows must match an item in the assumptions section.",
-                    "- When the JSON was shortened (`children_omitted`, compact summary), do not describe the omitted parts beyond what the analysis states.",
-                    "- Always include the assumptions and open questions sections, stating that none was identified when that is the case.",
-                    *(
-                        [
-                            "- <component_inventory> lists what the JSON contains, zone by zone: every component in it must be covered by the feature details table (repeated ones grouped in one row)."
-                        ]
-                        if inventory
-                        else []
-                    ),
-                ]
-            ),
-        )
-    )
+    rules = [rule.replace("{low}", low) for rule in texts["writing_rules"]]
+    if inventory:
+        rules.append(texts["inventory_rule"])
+    sections.append(_tagged("writing_rules", "\n".join(rules)))
     sections.append(_tagged("detail_level", DETAIL_LEVEL_RULES[lang].get(detail_level, DETAIL_LEVEL_RULES[lang]["standard"])))
     if template_key == "ux_hmi_detailed":
         sections.append(_tagged("examples", _EXAMPLES[lang]))
-    sections.append("Write the specification now.")
+    sections.append(texts["write_now"])
 
     messages = [
         {"role": "system", "content": build_spec_system_prompt(lang)},
         {"role": "user", "content": "\n\n".join(sections)},
     ]
-    response = client.chat.completions.create(model=get_model_name(), temperature=0.2, messages=messages)
-    markdown = _clean_output(response.choices[0].message.content, data)
+    markdown = _clean_output(complete(client, messages), data)
     if not markdown.strip():
         return {"markdown": "# Error\n\nNo content returned by model.\n", "warnings": [], "corrected": False, "inventory": False}
 
@@ -643,16 +706,16 @@ def generate_spec(
         if issues["structure"] or issues["unknown_components"]:
             # One correction pass with the precise list of problems; a second one rarely helps.
             try:
-                retry = client.chat.completions.create(
-                    model=get_model_name(),
-                    temperature=0,
-                    messages=[
+                retry = complete(
+                    client,
+                    [
                         *messages,
                         {"role": "assistant", "content": markdown},
                         {"role": "user", "content": format_issues_for_model(issues, lang)},
                     ],
+                    temperature=0,
                 )
-                fixed = _clean_output(retry.choices[0].message.content, data)
+                fixed = _clean_output(retry, data)
             except Exception:
                 logger.warning("Spec correction pass failed", exc_info=True)
                 fixed = ""

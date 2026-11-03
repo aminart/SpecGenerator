@@ -195,6 +195,21 @@ def validate_spec(markdown: str, language: str, json_names: set[str]) -> dict[st
 
 def format_issues_for_model(issues: dict[str, list[str]], language: str) -> str:
     low = CONFIDENCE_LEVELS["fr" if language == "fr" else "en"][2]
+    names = ", ".join(f"« {name} »" for name in issues["unknown_components"])
+    if language == "fr":
+        lines = [
+            "Le document présente les problèmes ci-dessous. Renvoyez le document complet corrigé, uniquement en "
+            "Markdown, en français, sans rien changer d’autre."
+        ]
+        lines.extend(f"- {issue}" for issue in issues["structure"])
+        if issues["unknown_components"]:
+            lines.append(
+                f"- Ces valeurs de la colonne Composant Figma ne correspondent à aucun `name` du JSON : {names}. "
+                "Remplacez chacune par le `name` exact du calque dans le JSON. Si la ligne n’est pas appuyée par le "
+                f"JSON, mettez un tiret (-) dans cette colonne et la confiance {low}, ou supprimez la ligne."
+            )
+        return "\n".join(lines)
+
     lines = [
         "The document has the problems listed below (in French). Return the complete corrected document, "
         "in Markdown only, in the same output language, keeping everything else unchanged."
