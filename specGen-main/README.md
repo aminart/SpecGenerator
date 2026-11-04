@@ -36,6 +36,10 @@ Réglages de génération (facultatifs, dans le `.env`), pensés pour Mistral Sm
 - `CUSTOM_MAX_CONTEXT_CHARS` (80 000 par défaut) : taille maximale des documents Markdown du contexte.
 - `CUSTOM_MAX_OUTPUT_TOKENS` (16 000 par défaut) : longueur maximale d'une réponse. Une réponse coupée est automatiquement poursuivie (3 fois au plus). Si le service refuse cette valeur, l'appel est refait sans.
 
+Le bouton **Tester la connexion** vérifie aussi ce dont la génération a besoin : la longueur de réponse demandée, le mode JSON et la plus grande taille de prompt envoyée. Si un réglage doit être baissé, il l'indique (le test peut durer jusqu'à 3 minutes).
+
+Pour analyser les résultats, cochez **Enregistrer un journal des générations** dans les options avancées des Paramètres (ou `CUSTOM_GENERATION_LOG=1` dans le `.env`). Chaque génération écrit alors un fichier JSON dans le dossier `journal` des paramètres : prompts envoyés, réponses brutes, motif de fin de réponse, corrections, avertissements et durées. Seuls les 100 derniers fichiers sont conservés, et ils restent sur le poste.
+
 Le délai par défaut est de 300 secondes : une génération peut enchaîner plusieurs appels (inventaire, rédaction, correction).
 
 ## Templates Word

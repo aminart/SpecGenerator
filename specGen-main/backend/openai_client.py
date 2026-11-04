@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any
 
 import httpx
 from openai import BadRequestError, OpenAI
 
+from generation_log import record_call
 from settings_store import EffectiveSettings, get_effective_settings
 
 
@@ -67,17 +69,29 @@ def _create(client: OpenAI, messages: list[dict[str, str]], temperature: float, 
     if json_mode:
         options["response_format"] = {"type": "json_object"}
     while True:
+        started = time.perf_counter()
         try:
-            return client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=get_model_name(), temperature=temperature, messages=messages, **options
             )
-        except BadRequestError as exc:
-            if not options:
+        except Exception as exc:
+            record_call(messages, {"temperature": temperature, **options}, error=f"{type(exc).__name__}: {exc}", duration=time.perf_counter() - started)
+            if not isinstance(exc, BadRequestError) or not options:
                 raise
             # Unsupported response_format first, then a max_tokens above the server limit.
             dropped = "response_format" if "response_format" in options else "max_tokens"
             logger.warning("Model service rejected %s, retrying without it: %s", dropped, exc)
             options.pop(dropped)
+            continue
+        choice = response.choices[0]
+        record_call(
+            messages,
+            {"temperature": temperature, **options},
+            answer=choice.message.content,
+            finish_reason=getattr(choice, "finish_reason", None),
+            duration=time.perf_counter() - started,
+        )
+        return response
 
 
 def complete(

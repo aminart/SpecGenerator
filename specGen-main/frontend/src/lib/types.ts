@@ -39,6 +39,8 @@ export interface ConnectionTest {
   message: string;
   at: string;
   model?: string;
+  /** What the generation relies on: output length, JSON mode, prompt size. */
+  checks?: { name: string; ok: boolean; message: string }[];
 }
 
 export interface ConnectionSettings {
@@ -54,6 +56,9 @@ export interface ConnectionSettings {
   model: string;
   timeout: number;
   last_test: ConnectionTest | null;
+  generation_log: boolean;
+  generation_log_from_env: boolean;
+  generation_log_dir: string;
 }
 
 export interface SettingsForm {
@@ -61,6 +66,7 @@ export interface SettingsForm {
   api_key: string | null;
   model: string;
   timeout: number;
+  generation_log: boolean;
 }
 
 export interface ComponentScope {

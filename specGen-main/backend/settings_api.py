@@ -1,6 +1,7 @@
 """Endpoints of the connection settings screen."""
 from __future__ import annotations
 
+import json
 import ssl
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -11,7 +12,9 @@ import openai
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from openai_client import build_client
+from context_generator import get_max_context_chars
+from openai_client import build_client, get_max_output_tokens
+from spec_generator import get_max_json_chars
 from settings_store import (
     DEFAULT_MODEL,
     DEFAULT_TIMEOUT_SECONDS,
@@ -34,6 +37,7 @@ class SettingsPayload(BaseModel):
     api_key: str | None = None
     model: str = DEFAULT_MODEL
     timeout: float = Field(default=DEFAULT_TIMEOUT_SECONDS, ge=10, le=1800)
+    generation_log: bool = False
 
 
 @router.get("")
@@ -43,7 +47,7 @@ def read_settings() -> dict[str, Any]:
 
 @router.put("")
 def update_settings(payload: SettingsPayload) -> dict[str, Any]:
-    save_settings(payload.api_base, payload.api_key, payload.model, payload.timeout)
+    save_settings(payload.api_base, payload.api_key, payload.model, payload.timeout, payload.generation_log)
     return public_settings()
 
 
@@ -95,6 +99,90 @@ def _diagnose(exc: Exception) -> dict[str, Any]:
     return _failure(None, "Échec de la connexion", str(exc))
 
 
+PROBE_TIMEOUT_SECONDS = 180.0
+_FILLER = (
+    "Ce paragraphe sert uniquement à mesurer la taille de texte que le service accepte en une seule requête. "
+)
+
+
+def _chars(value: int) -> str:
+    return f"{value:,}".replace(",", "\u202f")  # French thousands separator
+
+
+def _check(name: str, ok: bool, message: str) -> dict[str, Any]:
+    return {"name": name, "ok": ok, "message": message}
+
+
+def _probe_output_length(client: Any, model: str) -> dict[str, Any]:
+    tokens = get_max_output_tokens()
+    try:
+        client.chat.completions.create(model=model, max_tokens=tokens, messages=[{"role": "user", "content": "Réponds OK."}])
+    except openai.BadRequestError as exc:
+        return _check(
+            "Longueur de réponse",
+            False,
+            f"{_chars(tokens)} tokens refusés ({exc.message}). La génération continuera sans limite explicite ; "
+            "fixez une valeur acceptée avec CUSTOM_MAX_OUTPUT_TOKENS dans le .env.",
+        )
+    return _check("Longueur de réponse", True, f"{_chars(tokens)} tokens acceptés ; une réponse plus longue est reprise automatiquement.")
+
+
+def _probe_json_mode(client: Any, model: str) -> dict[str, Any]:
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            max_tokens=50,
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content": 'Réponds uniquement avec ce JSON : {"ok": true}'}],
+        )
+    except openai.BadRequestError:
+        return _check("Mode JSON", False, "Non pris en charge : l’inventaire des composants sera demandé sans, un peu moins fiable.")
+    content = response.choices[0].message.content or ""
+    try:
+        json.loads(content[content.find("{") : content.rfind("}") + 1])
+    except ValueError:
+        return _check("Mode JSON", False, "Accepté, mais la réponse n’est pas un JSON valide.")
+    return _check("Mode JSON", True, "Pris en charge.")
+
+
+def _probe_prompt_size(client: Any, model: str) -> dict[str, Any]:
+    """Largest prompt SpecGen can send: JSON + context budgets + instructions."""
+    target = get_max_json_chars() + get_max_context_chars() + 20_000
+    for size in (target, target // 2, target // 4):
+        prompt = (_FILLER * (size // len(_FILLER) + 1))[:size] + "\nRéponds OK."
+        try:
+            client.chat.completions.create(model=model, max_tokens=1, messages=[{"role": "user", "content": prompt}])
+        except openai.BadRequestError:
+            continue
+        if size == target:
+            return _check("Taille de prompt", True, f"{_chars(size)} caractères acceptés : les budgets actuels conviennent.")
+        return _check(
+            "Taille de prompt",
+            False,
+            f"{_chars(target)} caractères refusés, {_chars(size)} acceptés. Baissez CUSTOM_MAX_JSON_CHARS et "
+            f"CUSTOM_MAX_CONTEXT_CHARS dans le .env (par exemple à {_chars(size // 3)} chacun).",
+        )
+    return _check(
+        "Taille de prompt",
+        False,
+        f"Même {_chars(target // 4)} caractères sont refusés : baissez nettement CUSTOM_MAX_JSON_CHARS et "
+        "CUSTOM_MAX_CONTEXT_CHARS dans le .env.",
+    )
+
+
+def run_capability_checks(candidate: Any) -> list[dict[str, Any]]:
+    """What the generation relies on, checked once the connection works."""
+    client = build_client(candidate, timeout_seconds=PROBE_TIMEOUT_SECONDS)
+    checks = []
+    for probe in (_probe_output_length, _probe_json_mode, _probe_prompt_size):
+        try:
+            checks.append(probe(client, candidate.model))
+        except (openai.OpenAIError, httpx.HTTPError, ssl.SSLError, OSError) as exc:
+            name = {"_probe_output_length": "Longueur de réponse", "_probe_json_mode": "Mode JSON"}.get(probe.__name__, "Taille de prompt")
+            checks.append(_check(name, False, f"Test impossible : {_diagnose(exc)['title']}"))
+    return checks
+
+
 @router.post("/test")
 def test_connection(payload: SettingsPayload) -> dict[str, Any]:
     """Tests the values typed in the form (not yet saved) with the stored certificate."""
@@ -114,6 +202,7 @@ def test_connection(payload: SettingsPayload) -> dict[str, Any]:
         client = build_client(candidate, timeout_seconds=TEST_TIMEOUT_SECONDS)
         client.chat.completions.create(model=candidate.model, max_tokens=1, messages=[{"role": "user", "content": "ping"}])
         result: dict[str, Any] = {"ok": True, "field": None, "title": "Connexion opérationnelle", "message": f"modèle {candidate.model}"}
+        result["checks"] = run_capability_checks(candidate)
     except (openai.OpenAIError, httpx.HTTPError, ssl.SSLError, OSError) as exc:
         result = _diagnose(exc)
 
