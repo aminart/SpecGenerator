@@ -60,7 +60,13 @@ export const api = {
 export async function downloadExport(
   kind: DocKind,
   format: "md" | "html" | "docx",
-  body: { markdown: string; language: Language; image_base64?: string; image_mime?: string },
+  body: {
+    markdown: string;
+    language: Language;
+    image_base64?: string;
+    image_mime?: string;
+    diagrams?: { code: string; png_base64: string }[];
+  },
 ): Promise<void> {
   const response = await fetch(`/api/export/${kind}/${format}`, {
     method: "POST",

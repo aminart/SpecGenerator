@@ -140,3 +140,39 @@ def test_spec_prompt_keeps_only_developer_useful_rows(fake_llm, client, login_sc
     assert "## Messages et textes conditionnels" in prompt and "Ne pas lister les textes toujours visibles" in prompt
     assert "| Composant Figma | Texte | Type de texte | Condition d’affichage |" in prompt
     assert "| Texte | Usage |" not in prompt
+
+
+def _png() -> str:
+    import base64
+    import struct
+    import zlib
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    header = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+    pixels = zlib.compress(b"\x00\xff\xff\xff")
+    return base64.b64encode(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", pixels) + chunk(b"IEND", b"")).decode()
+
+
+def test_exports_draw_the_mermaid_diagrams(client):
+    import io
+    import zipfile
+
+    code = "flowchart TD\n  A[Connexion] --> B[Accueil]"
+    markdown = f"# Contexte\n\n# Parcours utilisateur\n\n```mermaid\n{code}\n```\n\n### Parcours 1\n1. Saisir → Valider\n"
+    payload = {"markdown": markdown, "diagrams": [{"code": code, "png_base64": _png()}]}
+
+    html_export = client.post("/api/export/context/html", json=payload).text
+    assert "data:image/png;base64," in html_export and "flowchart TD" not in html_export
+
+    docx = client.post("/api/export/context/docx", json=payload).content
+    with zipfile.ZipFile(io.BytesIO(docx)) as archive:
+        assert any(name.startswith("word/media/") for name in archive.namelist())
+        assert "flowchart TD" not in archive.read("word/document.xml").decode()
+
+    # Without a drawn image, the diagram stays as code (and the fence itself is not printed).
+    docx = client.post("/api/export/context/docx", json={"markdown": markdown}).content
+    with zipfile.ZipFile(io.BytesIO(docx)) as archive:
+        document_xml = archive.read("word/document.xml").decode()
+        assert "flowchart TD" in document_xml and "```" not in document_xml

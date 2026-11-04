@@ -25,6 +25,8 @@ from pydantic import BaseModel, Field
 
 from context_generator import generate_context_markdown
 from document_export import (
+    diagrams_by_code,
+    embed_diagrams_in_markdown,
     build_component_library_summary,
     build_context_docx_from_template,
     build_context_source_payload,
@@ -107,6 +109,8 @@ class ExportRequest(BaseModel):
     language: Language = "fr"
     image_base64: str | None = None
     image_mime: str | None = None
+    # Mermaid diagrams of the document drawn as PNG by the frontend: images in Word and HTML.
+    diagrams: list[dict[str, str]] = []
 
 
 def _require_llm() -> None:
@@ -351,19 +355,21 @@ def export_document(kind: Literal["context", "spec"], fmt: Literal["md", "html",
     image_data = request.image_base64 if kind == "spec" else None
     image_mime = request.image_mime if image_data else None
     filename = _safe_filename(title, kind)
+    diagrams = diagrams_by_code(request.diagrams)
 
     if fmt == "md":
         content: bytes = request.markdown.encode("utf-8")
         media_type = "text/markdown; charset=utf-8"
     elif fmt == "html":
-        content = build_export_html(request.markdown, title, subtitle, None, request.language, image_data, image_mime).encode("utf-8")
+        html_markdown = embed_diagrams_in_markdown(request.markdown, diagrams)
+        content = build_export_html(html_markdown, title, subtitle, None, request.language, image_data, image_mime).encode("utf-8")
         media_type = "text/html; charset=utf-8"
     else:
         if kind == "context":
-            content = build_context_docx_from_template(request.markdown, title, subtitle, request.language)
+            content = build_context_docx_from_template(request.markdown, title, subtitle, request.language, diagrams)
         else:
             image_bytes = base64.b64decode(image_data) if image_data else None
-            content = build_docx_from_template(request.markdown, title, subtitle, request.language, image_bytes)
+            content = build_docx_from_template(request.markdown, title, subtitle, request.language, image_bytes, diagrams)
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     return Response(
