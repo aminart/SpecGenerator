@@ -48,13 +48,13 @@ EXPECTED_TABLES = {
     "fr": {
         "Variantes de la feature": ["ID", "Variante", "Contexte d’affichage", "Différences visuelles / comportementales", "Conditions / règles"],
         "Détail de la feature": ["ID", "Composant Figma", "Type de composant", "État par défaut", "Comportement", "Niveau de confiance"],
-        "Textes de l’interface": ["Composant Figma", "Texte", "Usage"],
+        "Textes de l’interface": ["Composant Figma", "Texte", "Type de texte", "Condition d’affichage"],
         "Données affichées": ["Donnée", "Composant Figma", "Format", "Cas vide / long"],
     },
     "en": {
         "Feature variants": ["ID", "Variant", "Display context", "Visual / behavioral differences", "Conditions / rules"],
         "Feature details": ["ID", "Figma component", "Component type", "Default state", "Behavior", "Confidence level"],
-        "Interface texts": ["Figma component", "Text", "Usage"],
+        "Interface texts": ["Figma component", "Text", "Text type", "Display condition"],
         "Displayed data": ["Data", "Figma component", "Format", "Empty / long case"],
     },
 }

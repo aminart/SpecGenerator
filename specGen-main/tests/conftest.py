@@ -116,10 +116,10 @@ Lancement de l’application (hypothèse).
 | #3 | - | Case à cocher | - | - | Faible |
 
 ## Textes de l’interface
-| Composant Figma | Texte | Usage |
-|---|---|---|
-| Button/Primary | « Se connecter » | Bouton |
-| Error message | Identifiants invalides | Erreur |
+| Composant Figma | Texte | Type de texte | Condition d’affichage |
+|---|---|---|---|
+| Button/Primary | « Se connecter » | Libellé de bouton | Toujours |
+| Error message | Identifiants invalides | Message d’erreur | Après validation avec des identifiants refusés |
 
 ## Données affichées
 | Donnée | Composant Figma | Format | Cas vide / long |
