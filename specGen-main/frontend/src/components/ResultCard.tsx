@@ -24,9 +24,10 @@ export function ResultCard({
   title: string;
   meta: string;
   cta?: ReactNode;
-  tabs: ResultTab[];
-  activeTab: string;
-  onTabChange: (id: string) => void;
+  /** No tab bar when there is a single view. */
+  tabs?: ResultTab[];
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
   actions: ReactNode;
   children: ReactNode;
 }) {
@@ -42,22 +43,24 @@ export function ResultCard({
           {cta}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div role="tablist" aria-label="Affichage" className="flex flex-wrap rounded-lg bg-[#F2F3F8] p-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={tab.id === activeTab}
-                onClick={() => onTabChange(tab.id)}
-                className={`min-h-[36px] rounded-md px-4 text-sm font-medium transition ${
-                  tab.id === activeTab ? "bg-navy text-white" : "text-[#3B3F52] hover:text-ink"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {tabs && tabs.length > 1 && (
+            <div role="tablist" aria-label="Affichage" className="flex flex-wrap rounded-lg bg-[#F2F3F8] p-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab.id === activeTab}
+                  onClick={() => onTabChange?.(tab.id)}
+                  className={`min-h-[36px] rounded-md px-4 text-sm font-medium transition ${
+                    tab.id === activeTab ? "bg-navy text-white" : "text-[#3B3F52] hover:text-ink"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="ml-auto flex flex-wrap gap-2">{actions}</div>
         </div>
       </div>
@@ -104,6 +107,21 @@ export function ExportButtons({
         {busy === "html" ? "Export…" : "HTML"}
       </button>
     </>
+  );
+}
+
+/** Problems the backend still found in the generated document after its correction pass. */
+export function WarningsPanel({ warnings }: { warnings?: string[] }) {
+  if (!warnings?.length) return null;
+  return (
+    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      <p className="font-medium">Points à vérifier dans ce document</p>
+      <ul className="mt-1 list-disc pl-5">
+        {warnings.map((warning) => (
+          <li key={warning}>{warning}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

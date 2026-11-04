@@ -74,7 +74,8 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [model, setModel] = useState("mistral");
-  const [timeout, setTimeoutValue] = useState("180");
+  const [timeout, setTimeoutValue] = useState("300");
+  const [generationLog, setGenerationLog] = useState(false);
   const [test, setTest] = useState<ConnectionTest | null>(null);
   const [busy, setBusy] = useState<"test" | "save" | "certificate" | "clear" | null>(null);
   const certificateInput = useRef<HTMLInputElement>(null);
@@ -87,6 +88,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
     setApiKey(settings.has_api_key ? null : "");
     setModel(settings.model);
     setTimeoutValue(String(settings.timeout));
+    setGenerationLog(settings.generation_log);
     setTest(settings.last_test);
   };
 
@@ -105,10 +107,10 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
   }
 
   const fromEnv = (field: SettingsField) => saved.env_fields.includes(field);
-  const form: SettingsForm = { api_base: apiBase, api_key: apiKey, model, timeout: Number(timeout) || 180 };
+  const form: SettingsForm = { api_base: apiBase, api_key: apiKey, model, timeout: Number(timeout) || 300, generation_log: generationLog };
   const hasKey = apiKey === null ? saved.has_api_key : apiKey.trim().length > 0;
   const isComplete = Boolean(apiBase.trim()) && hasKey && Boolean(saved.certificate);
-  const isDirty = apiBase !== saved.api_base || apiKey !== null && (apiKey !== "" || saved.has_api_key) || model !== saved.model || Number(timeout) !== saved.timeout;
+  const isDirty = apiBase !== saved.api_base || apiKey !== null && (apiKey !== "" || saved.has_api_key) || model !== saved.model || Number(timeout) !== saved.timeout || generationLog !== saved.generation_log;
   const failedField = test && !test.ok ? test.field : null;
   const expiry = expiryStatus(saved.certificate?.expires_at);
 
@@ -201,6 +203,23 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
                 </p>
               </div>
             </div>
+          )}
+
+          {test?.ok && test.checks && test.checks.length > 0 && (
+            <ul className="-mt-3 flex flex-col gap-2 rounded-lg border border-line bg-[#FAFBFD] px-4 py-3 text-[13px]">
+              {test.checks.map((check) => (
+                <li key={check.name} className="flex gap-2">
+                  {check.ok ? (
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" strokeWidth={3} aria-label="Conforme" />
+                  ) : (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#B54708]" aria-label="À ajuster" />
+                  )}
+                  <span className="text-ink-body">
+                    <b className="font-medium">{check.name}</b> · {check.message}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
 
           <SettingsField label="URL du service" htmlFor="api-base" hint={fromEnv("api_base") ? envHint : undefined}>
@@ -334,7 +353,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
 
           <details className="border-t border-line pt-4">
             <summary className="cursor-pointer text-sm font-medium text-ink-muted hover:text-ink">
-              Options avancées · modèle {model || "mistral"}, délai {timeout} s
+              Options avancées · modèle {model || "mistral"}, délai {timeout} s{generationLog ? ", journal activé" : ""}
             </summary>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SettingsField label="Modèle" htmlFor="model" hint={fromEnv("model") ? envHint : undefined}>
@@ -344,6 +363,23 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
                 <TextInput id="timeout" type="number" value={timeout} onChange={setTimeoutValue} disabled={fromEnv("timeout")} />
               </SettingsField>
             </div>
+            <label className="mt-4 flex items-start gap-3 text-sm text-ink-body">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4"
+                checked={generationLog}
+                disabled={saved.generation_log_from_env}
+                onChange={(event) => setGenerationLog(event.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Enregistrer un journal des générations</span>
+                <span className="mt-0.5 block text-[13px] text-ink-muted">
+                  Prompts envoyés, réponses brutes, corrections et durées, un fichier par génération (100 au plus) dans{" "}
+                  <b className="font-medium">{saved.generation_log_dir}</b>. Ces fichiers contiennent vos documents : ils restent sur ce poste.
+                  {saved.generation_log_from_env ? " Réglé par le fichier .env." : ""}
+                </span>
+              </span>
+            </label>
           </details>
 
           {test && !test.ok && (
@@ -375,7 +411,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
             </p>
           )}
           <button type="button" className="btn-secondary" disabled={!isComplete || busy !== null} onClick={handleTest}>
-            {busy === "test" ? "Test en cours…" : test && !test.ok ? "Tester à nouveau" : "Tester la connexion"}
+            {busy === "test" ? "Test en cours (jusqu’à 3 min)…" : test && !test.ok ? "Tester à nouveau" : "Tester la connexion"}
           </button>
           {saved.configured && !isDirty ? (
             <button type="button" className="btn-primary" disabled>

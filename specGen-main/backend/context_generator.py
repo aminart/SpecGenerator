@@ -1,260 +1,365 @@
 from __future__ import annotations
 
+import json
+import logging
+import os
 from typing import Any
 
 from json_analysis import format_analysis_for_prompt_compact
-from openai_client import get_model_name, get_openai_client
+from markdown_cleanup import unwrap_markdown_fence
+from openai_client import complete, get_openai_client
+from spec_generator import get_max_json_chars, prune_json_for_prompt
+from spec_validation import CONFIDENCE_LEVELS, check_against_structure, format_warnings
 
+logger = logging.getLogger(__name__)
 
-MAX_ITEMS_PER_LIST = 8
-MAX_FIELDS = 12
+DEFAULT_MAX_CONTEXT_CHARS = 80000
+MAX_CONTEXT_CHARS_VARIABLE = "CUSTOM_MAX_CONTEXT_CHARS"
 
+# "light" is the fallback after a timeout: smaller sources, shorter structure.
 CONTEXT_PROMPT_PROFILES = {
     "standard": {
-        "max_feature_groups": 5,
-        "max_components_per_group": 2,
-        "max_fields": 8,
-        "max_labels": 10,
-        "max_placeholders": 6,
-        "summary_items": 8,
-        "summary_fields": 12,
-        "max_priority_context_chars": 12000,
+        "max_feature_groups": 12,
+        "max_components_per_group": 3,
+        "max_fields": 15,
+        "max_labels": 20,
+        "max_placeholders": 10,
+        "context_share": 1.0,
+        "json_share": 0.5,
         "include_component_library": True,
     },
     "light": {
-        "max_feature_groups": 2,
+        "max_feature_groups": 4,
         "max_components_per_group": 1,
-        "max_fields": 4,
-        "max_labels": 5,
-        "max_placeholders": 3,
-        "summary_items": 4,
-        "summary_fields": 5,
-        "max_priority_context_chars": 6000,
+        "max_fields": 5,
+        "max_labels": 8,
+        "max_placeholders": 4,
+        "context_share": 0.3,
+        "json_share": 0.0,
         "include_component_library": False,
     },
 }
 
 
+def get_max_context_chars() -> int:
+    try:
+        value = int(os.getenv(MAX_CONTEXT_CHARS_VARIABLE, ""))
+    except ValueError:
+        return DEFAULT_MAX_CONTEXT_CHARS
+    return value if value > 0 else DEFAULT_MAX_CONTEXT_CHARS
+
+
 def _get_expected_context_structure(language: str, context_mode: str) -> str:
     if language == "fr":
         if context_mode == "light":
-            return "# Vue d’ensemble du projet\n## Description globale\n## Parcours principaux\n# Architecture & Navigation\n## Macro layout\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Zone | Rôle | Contenu principal | Comportement / règles |\n|---|---|---|---|\n## Navigation\n# Patterns UX\n## Chargement et feedback\n# Hypothèses et questions ouvertes\n## Hypothèses\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Hypothèse | Justification | Niveau de confiance |\n|---|---|---|---|\n## Questions ouvertes\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Question | Contexte | Impact |\n|---|---|---|---|"
-        return "# Vue d’ensemble du projet\n## Vue globale de l’application\n## Description globale\n## Personas\n# Parcours utilisateur\n# Architecture & Navigation\n## Macro layout\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Zone | Rôle | Contenu principal | Comportement / règles |\n|---|---|---|---|\n## Navigation\n## Architecture de l’information\n## Présentation des sous-niveaux\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Niveau | Point d’entrée | Contenu affiché | Interaction / règle |\n|---|---|---|---|\n# Patterns UX\n## Stratégie de chargement\n## Notifications & alertes\n# Spécifications système et accessibilité\n## Grille d’espacement\n## Navigation clavier\n# Hypothèses et questions ouvertes\n## Hypothèses\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Hypothèse | Justification | Niveau de confiance |\n|---|---|---|---|\n## Questions ouvertes\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Question | Contexte | Impact |\n|---|---|---|---|"
+            return "# Vue d’ensemble du projet\n## Description globale\n## Parcours principaux\n# Architecture & Navigation\n## Liste des écrans\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Écran | Rôle | Accès depuis | Specs liées |\n|---|---|---|---|\n## Macro layout\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Zone | Rôle | Contenu principal | Comportement / règles |\n|---|---|---|---|\n## Navigation\n# Patterns UX\n## Chargement et feedback\n# Hypothèses et questions ouvertes\n## Hypothèses\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Hypothèse | Justification | Niveau de confiance |\n|---|---|---|---|\n## Questions ouvertes\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Question | Contexte | Impact |\n|---|---|---|---|"
+        return "# Vue d’ensemble du projet\n## Vue globale de l’application\n## Description globale\n## Personas\n## Glossaire métier\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Terme | Définition | Source |\n|---|---|---|\n# Parcours utilisateur\n# Architecture & Navigation\n## Liste des écrans\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Écran | Rôle | Accès depuis | Specs liées |\n|---|---|---|---|\n## Macro layout\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Zone | Rôle | Contenu principal | Comportement / règles |\n|---|---|---|---|\n## Navigation\n## Architecture de l’information\n## Présentation des sous-niveaux\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| Niveau | Point d’entrée | Contenu affiché | Interaction / règle |\n|---|---|---|---|\n# Patterns UX\n## Stratégie de chargement\n## Notifications & alertes\n# Spécifications système et accessibilité\n## Grille d’espacement\n## Navigation clavier\n# Hypothèses et questions ouvertes\n## Hypothèses\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Hypothèse | Justification | Niveau de confiance |\n|---|---|---|---|\n## Questions ouvertes\nUtiliser un tableau Markdown avec exactement ces colonnes :\n| ID | Question | Contexte | Impact |\n|---|---|---|---|"
 
     if context_mode == "light":
-        return "# Project overview\n## Global description\n## Main user flows\n# Architecture & Navigation\n## Macro layout\nUse a Markdown table with exactly these columns:\n| Zone | Role | Main content | Behavior / rules |\n|---|---|---|---|\n## Navigation pattern\n# UX patterns\n## Loading and feedback\n# Hypotheses and open questions\n## Hypotheses\nUse a Markdown table with exactly these columns:\n| ID | Hypothesis | Rationale | Confidence level |\n|---|---|---|---|\n## Open questions\nUse a Markdown table with exactly these columns:\n| ID | Question | Context | Impact |\n|---|---|---|---|"
-    return "# Project overview\n## Global view of the application\n## Global description\n## Personas\n# User flow\n# Architecture & Navigation\n## Macro layout\nUse a Markdown table with exactly these columns:\n| Zone | Role | Main content | Behavior / rules |\n|---|---|---|---|\n## Navigation pattern\n## Information architecture\n## Sub-level presentation\nUse a Markdown table with exactly these columns:\n| Level | Entry point | Displayed content | Interaction / rule |\n|---|---|---|---|\n# UX patterns\n## Loading strategy\n## Notifications & alerts\n# System specifications and accessibility\n## Spacing grid\n## Keyboard navigation\n# Hypotheses and open questions\n## Hypotheses\nUse a Markdown table with exactly these columns:\n| ID | Hypothesis | Rationale | Confidence level |\n|---|---|---|---|\n## Open questions\nUse a Markdown table with exactly these columns:\n| ID | Question | Context | Impact |\n|---|---|---|---|"
+        return "# Project overview\n## Global description\n## Main user flows\n# Architecture & Navigation\n## Screen list\nUse a Markdown table with exactly these columns:\n| Screen | Role | Accessed from | Related specs |\n|---|---|---|---|\n## Macro layout\nUse a Markdown table with exactly these columns:\n| Zone | Role | Main content | Behavior / rules |\n|---|---|---|---|\n## Navigation pattern\n# UX patterns\n## Loading and feedback\n# Hypotheses and open questions\n## Hypotheses\nUse a Markdown table with exactly these columns:\n| ID | Hypothesis | Rationale | Confidence level |\n|---|---|---|---|\n## Open questions\nUse a Markdown table with exactly these columns:\n| ID | Question | Context | Impact |\n|---|---|---|---|"
+    return "# Project overview\n## Global view of the application\n## Global description\n## Personas\n## Business glossary\nUse a Markdown table with exactly these columns:\n| Term | Definition | Source |\n|---|---|---|\n# User flow\n# Architecture & Navigation\n## Screen list\nUse a Markdown table with exactly these columns:\n| Screen | Role | Accessed from | Related specs |\n|---|---|---|---|\n## Macro layout\nUse a Markdown table with exactly these columns:\n| Zone | Role | Main content | Behavior / rules |\n|---|---|---|---|\n## Navigation pattern\n## Information architecture\n## Sub-level presentation\nUse a Markdown table with exactly these columns:\n| Level | Entry point | Displayed content | Interaction / rule |\n|---|---|---|---|\n# UX patterns\n## Loading strategy\n## Notifications & alerts\n# System specifications and accessibility\n## Spacing grid\n## Keyboard navigation\n# Hypotheses and open questions\n## Hypotheses\nUse a Markdown table with exactly these columns:\n| ID | Hypothesis | Rationale | Confidence level |\n|---|---|---|---|\n## Open questions\nUse a Markdown table with exactly these columns:\n| ID | Question | Context | Impact |\n|---|---|---|---|"
 
 
-def _join_items(items: list[str], fallback: str = "Aucun", limit: int = MAX_ITEMS_PER_LIST) -> str:
-    filtered = [item for item in items if item]
-    return ", ".join(filtered[:limit]) if filtered else fallback
+DETAIL_LEVEL_RULES = {
+    "fr": {
+        "compact": (
+            "Niveau synthétique : document court, pour une présentation rapide du projet.\n"
+            "- Deux à quatre phrases par section.\n"
+            "- Parcours : les deux ou trois parcours principaux, en trois à cinq étapes chacun.\n"
+            "- Macro layout : seulement les zones principales.\n"
+            "- Hypothèses et questions ouvertes : les cinq plus importantes au plus."
+        ),
+        "standard": (
+            "Niveau standard : document de référence pour écrire les specs.\n"
+            "- Parcours : tous les parcours appuyés par les sources, chaque étape avec l’action de l’utilisateur et la réponse du système.\n"
+            "- Macro layout et navigation : toutes les zones et tous les points d’entrée identifiés.\n"
+            "- Patterns UX : ceux que les sources montrent, les autres en hypothèses."
+        ),
+        "detailed": (
+            "Niveau détaillé : document exhaustif.\n"
+            "- Parcours : principaux, secondaires et chemins d’erreur, chaque étape avec l’action, la réponse du système et l’écran concerné.\n"
+            "- Architecture de l’information complète, sous-niveaux compris.\n"
+            "- Accessibilité et règles système détaillées (clavier, focus, espacements) lorsque les sources les appuient.\n"
+            "- Toutes les hypothèses et questions ouvertes identifiées."
+        ),
+    },
+    "en": {
+        "compact": (
+            "Compact level: short document, for a quick presentation of the project.\n"
+            "- Two to four sentences per section.\n"
+            "- User flows: the two or three main flows, in three to five steps each.\n"
+            "- Macro layout: main zones only.\n"
+            "- Hypotheses and open questions: the five most important at most."
+        ),
+        "standard": (
+            "Standard level: reference document for writing specifications.\n"
+            "- User flows: every flow supported by the sources, each step with the user action and the system response.\n"
+            "- Macro layout and navigation: every zone and entry point identified.\n"
+            "- UX patterns: those the sources show, the others as hypotheses."
+        ),
+        "detailed": (
+            "Detailed level: exhaustive document.\n"
+            "- User flows: main, secondary and error paths, each step with the action, the system response and the screen involved.\n"
+            "- Complete information architecture, including sub-levels.\n"
+            "- Detailed accessibility and system rules (keyboard, focus, spacing) when the sources support them.\n"
+            "- Every hypothesis and open question identified."
+        ),
+    },
+}
+
+_EXAMPLES = {
+    "fr": """Ces exemples montrent la forme et le niveau de précision attendus, pas le contenu : ne les recopiez pas.
+
+Bonne ligne du tableau « Macro layout » :
+| Header | Identification et accès global | Logo, titre de l’écran, menu utilisateur | Fixe en haut sur tous les écrans ; le menu utilisateur ouvre un panneau contextuel |
+
+Bonnes lignes des tableaux « Liste des écrans » et « Glossaire métier » :
+| Connexion | Authentifier l’utilisateur | Lancement de l’application, déconnexion | Formulaire de connexion, Mot de passe oublié |
+| Dossier | Demande d’un client suivie de bout en bout | Cahier des charges, § 2.1 |
+
+Bon parcours :
+### Parcours 1 : Se connecter
+1. L’utilisateur saisit son email et son mot de passe → les champs passent à l’état rempli.
+2. Il clique sur « Se connecter » → le système ouvre l’écran Accueil (interaction de prototype).
+3. Identifiants refusés → message « Identifiants invalides » sous le formulaire (calque masqué par défaut).
+
+Bonne ligne du tableau « Hypothèses » :
+| H2 | La session reste ouverte entre deux visites | Case « Se souvenir de moi » présente sur l’écran de connexion | Moyen |
+
+Bonne ligne du tableau « Questions ouvertes » :
+| Q1 | Que voit un utilisateur sans droits d’administration ? | Le menu Administration apparaît sur toutes les maquettes | Navigation et sécurité |""",
+    "en": """These examples show the expected form and precision, not the content: do not copy them.
+
+Good row of the "Macro layout" table:
+| Header | Identification and global access | Logo, screen title, user menu | Fixed at the top on every screen; the user menu opens a contextual panel |
+
+Good rows of the "Screen list" and "Business glossary" tables:
+| Sign-in | Authenticate the user | App launch, sign-out | Sign-in form, Forgotten password |
+| Case | A customer request followed end to end | Requirements, § 2.1 |
+
+Good user flow:
+### Flow 1: Sign in
+1. The user enters their email and password → the fields switch to the filled state.
+2. They click "Sign in" → the system opens the Home screen (prototype interaction).
+3. Rejected credentials → "Invalid credentials" message below the form (layer hidden by default).
+
+Good row of the "Hypotheses" table:
+| H2 | The session stays open between visits | "Remember me" checkbox present on the sign-in screen | Medium |
+
+Good row of the "Open questions" table:
+| Q1 | What does a user without admin rights see? | The Administration menu appears on every mockup | Navigation and security |""",
+}
 
 
-def build_context_summary(analysis: dict[str, Any], mode: str = "standard") -> str:
-    profile = CONTEXT_PROMPT_PROFILES.get(mode, CONTEXT_PROMPT_PROFILES["standard"])
-    feature_groups = analysis.get("feature_groups", [])
-    fields = analysis.get("fields", [])
-
-    lines = [
-        "# Synthèse structurée de l'application",
-        "## Vue d'ensemble",
-        f"- Nom racine : {analysis.get('root_name', 'Inconnu')}",
-        f"- Nombre de noeuds analysés : {analysis.get('node_count', 0)}",
-        f"- Nombre de sections détectées : {analysis.get('section_count', 0)}",
-        f"- Nombre d'actions détectées : {analysis.get('action_count', 0)}",
-        f"- Nombre de champs détectés : {analysis.get('field_count', 0)}",
-        f"- Types de composants détectés : {_join_items(analysis.get('field_types', []), limit=profile['summary_items'])}",
-        "## Sections principales détectées",
-    ]
-
-    sections = analysis.get("sections", [])
-    if sections:
-        lines.extend([f"- {section}" for section in sections[: profile['summary_items']]])
-    else:
-        lines.append("- Aucune section clairement détectée")
-
-    lines.extend(
-        [
-            "## Actions et verbes d'interaction détectés",
-        ]
-    )
-
-    actions = analysis.get("actions", [])
-    if actions:
-        lines.extend([f"- {action}" for action in actions[: profile['summary_items']]])
-    else:
-        lines.append("- Aucune action clairement détectée")
-
-    lines.extend(
-        [
-            "## Groupes fonctionnels / zones UI détectées",
-        ]
-    )
-
-    if feature_groups:
-        for group in feature_groups[: profile['summary_items']]:
-            lines.append(f"### {group.get('label', 'Feature')} ({group.get('component_count', 0)} composants)")
-            lines.append(f"- Types principaux : {_join_items(group.get('component_types', []), limit=profile['summary_items'])}")
-            lines.append(f"- Labels visibles : {_join_items(group.get('labels', []), limit=profile['summary_items'])}")
-            lines.append(f"- Actions associées : {_join_items(group.get('actions', []), limit=profile['summary_items'])}")
-            sample_components = group.get("sample_components", [])
-            if sample_components:
-                lines.append("- Exemples de composants :")
-                for component in sample_components[: profile['max_components_per_group'] + 1]:
-                    lines.append(
-                        f"  - {component.get('name', 'Composant')} | type: {component.get('type', 'unknown')} | label: {component.get('label', '-') }"
-                    )
-    else:
-        lines.append("- Aucun groupe fonctionnel détecté")
-
-    lines.extend(
-        [
-            "## Champs et contrôles représentatifs",
-        ]
-    )
-
-    if fields:
-        for field in fields[: profile['summary_fields']]:
-            lines.append(
-                f"- {field.get('name', 'Champ')} | type: {field.get('type', 'unknown')} | label: {field.get('label', '-')} | placeholder: {field.get('placeholder', '-')}"
-            )
-    else:
-        lines.append("- Aucun champ représentatif détecté")
-
-    labels = analysis.get("labels", [])
-    placeholders = analysis.get("placeholders", [])
-    lines.extend(
-        [
-            "## Indices textuels utiles",
-            f"- Labels visibles notables : {_join_items(labels, limit=profile['summary_items'])}",
-            f"- Placeholders notables : {_join_items(placeholders, limit=profile['summary_items'])}",
-        ]
-    )
-
-    lines.extend(
-        [
-            "## Interprétation UX attendue",
-            "- Utiliser cette synthèse pour déduire la macro-architecture, la navigation, les zones fixes, les panneaux contextuels, les parcours probables et les patterns UX.",
-            "- En cas d'incertitude, formuler des hypothèses explicites au lieu d'inventer des détails.",
-        ]
-    )
-
-    return "\n".join(lines)
+def _tagged(tag: str, content: str) -> str:
+    return f"<{tag}>\n{content.strip()}\n</{tag}>"
 
 
-def _truncate_text(value: str | None, max_chars: int) -> str:
+def _truncate_text(value: str | None, max_chars: int, language: str = "en") -> str:
     if not value:
         return ""
     text = value.strip()
     if len(text) <= max_chars:
         return text
-    return text[:max_chars].rstrip() + "\n\n[Truncated for prompt efficiency]"
+    return text[:max_chars].rstrip() + "\n\n" + TEXTS["fr" if language == "fr" else "en"]["truncated"]
+
+
+def build_context_system_prompt(language: str) -> str:
+    language_name = "French" if language == "fr" else "English"
+    high, medium, low = CONFIDENCE_LEVELS[language]
+    if language == "fr":
+        return (
+            "Vous êtes un architecte UX senior. Vous rédigez le document de contexte du projet (vue d’ensemble de "
+            "l’architecture UX : parcours utilisateur, macro layout, navigation, patterns UX), sur lequel "
+            "s’appuient ensuite les spécifications détaillées.\n\n"
+            "Politique de preuve, prioritaire sur toute autre consigne :\n"
+            "1. L’intention produit, les personas, les besoins utilisateurs et les règles métier ne sont des faits "
+            "que s’ils figurent dans <project_documents>.\n"
+            "2. Les écrans, zones, composants, la navigation et les interactions ne sont des faits que s’ils "
+            "figurent dans <application_json> ou <json_analysis>.\n"
+            "3. <component_library> sert seulement à préciser le vocabulaire ; elle ne prouve jamais qu’un "
+            "composant est utilisé.\n"
+            "4. Tout le reste, même plausible, va dans les tableaux Hypothèses ou Questions ouvertes. Un document "
+            "fiable vaut mieux qu’un document spéculatif.\n\n"
+            f"Niveaux de confiance, avec exactement ces mots : {high} = appuyé directement par les sources ; "
+            f"{medium} = déduction solide croisant plusieurs sources ; {low} = hypothèse.\n\n"
+            "Répondez uniquement en Markdown, entièrement en français, en suivant <output_structure> à la lettre "
+            "(titres et colonnes des tableaux)."
+        )
+    return (
+        "You are a senior UX architect. You write the project context document (UX architecture overview: "
+        "user flows, macro layout, navigation, UX patterns) on which the detailed specifications are then based.\n\n"
+        "Evidence policy, which overrides every other instruction:\n"
+        "1. Product intent, personas, user needs and business rules are facts only when they appear in "
+        "<project_documents>.\n"
+        "2. Screens, zones, components, navigation and interactions are facts only when they appear in "
+        "<application_json> or <json_analysis>.\n"
+        "3. <component_library> only refines terminology; it never proves that a component is used.\n"
+        "4. Anything else, even plausible, goes in the hypotheses or open questions tables. A reliable document "
+        "is better than a speculative one.\n\n"
+        f"Confidence levels, in this exact wording: {high} = directly supported by the sources; {medium} = strong "
+        f"inference combining several sources; {low} = assumption.\n\n"
+        f"Write clean Markdown only, entirely in {language_name}, following <output_structure> verbatim "
+        "(headings and table columns)."
+    )
+
+
+TEXTS = {
+    "en": {
+        "writing_rules": """- Describe the product as an architecture: navigation logic, macro layout, fixed zones, contextual panels, interaction model and usage patterns, not a list of widgets.
+- User flows: numbered steps, each written as "user action → system response", grouped by flow under a level 3 heading.
+- Use the JSON signals: the feature groups are the real screens and zones of the file; `interactions` give navigation and flows; `properties`, `variantOptions` and layers with `visible: false` reveal states, feedback and errors.
+- Personas only when the documents name or clearly describe them; otherwise put them in the hypotheses.
+- Every required table stays a Markdown table, never bullets or paragraphs.
+- When the JSON was shortened (`children_omitted`, compact analysis), do not describe the omitted parts.
+- Screen list: one row per screen or main zone found in the JSON (feature groups), its role, where it is reached from, and in "Related specs" the features of that screen that will need a detailed specification.
+- Business glossary: the domain terms of the documents with their definition and the document they come from; a term defined nowhere goes in the open questions.
+- Do not quote technical paths ($.children[0]…) or ids.""",
+        "no_documents": "No project documents provided.",
+        "json_note": "Application JSON pruned for the prompt (no geometry, styles or ids).",
+        "json_reduced": " Long lists and deep levels were cut (`children_omitted`).",
+        "truncated": "[Truncated: the end of the documents was cut to fit the prompt]",
+        "write_now": "Write the context document now.",
+        "fix": "The document has the problems listed below (in French). Return the complete corrected document, in Markdown only, in the same output language, keeping everything else unchanged.",
+    },
+    "fr": {
+        "writing_rules": """- Décrire le produit comme une architecture : logique de navigation, macro layout, zones fixes, panneaux contextuels, modèle d’interaction et usages, pas comme une liste de widgets.
+- Parcours utilisateur : étapes numérotées, chacune écrite « action de l’utilisateur → réponse du système », regroupées par parcours sous un titre de niveau 3.
+- Exploiter les signaux du JSON : les groupes fonctionnels sont les vrais écrans et zones du fichier ; `interactions` donne la navigation et les parcours ; `properties`, `variantOptions` et les calques `visible: false` révèlent les états, les retours et les erreurs.
+- Des personas seulement si les documents les nomment ou les décrivent clairement ; sinon, les mettre en hypothèses.
+- Chaque tableau demandé reste un tableau Markdown, jamais des puces ou des paragraphes.
+- Quand le JSON a été raccourci (`children_omitted`, analyse compacte), ne pas décrire les parties omises.
+- Liste des écrans : une ligne par écran ou zone principale du JSON (groupes fonctionnels), son rôle, d’où on y accède, et dans « Specs liées » les features de cet écran qui demanderont une spécification détaillée.
+- Glossaire métier : les termes du domaine présents dans les documents, avec leur définition et le document d’où ils viennent ; un terme défini nulle part va dans les questions ouvertes.
+- Ne citer ni chemins techniques ($.children[0]…) ni identifiants.""",
+        "no_documents": "Aucun document projet fourni.",
+        "json_note": "JSON de l’application allégé pour le prompt (sans géométrie, styles ni ids).",
+        "json_reduced": " Les longues listes et les niveaux profonds ont été coupés (`children_omitted`).",
+        "truncated": "[Tronqué : la fin des documents a été coupée pour tenir dans le prompt]",
+        "write_now": "Rédigez maintenant le document de contexte.",
+        "fix": "Le document présente les problèmes ci-dessous. Renvoyez le document complet corrigé, uniquement en Markdown, en français, sans rien changer d’autre.",
+    },
+}
+
+
+def _build_messages(
+    *,
+    language: str,
+    detail_level: str,
+    context_mode: str,
+    json_source: str,
+    analysis: dict[str, Any],
+    priority_context_documents: str | None,
+    component_library_summary: str | None,
+) -> tuple[list[dict[str, str]], str]:
+    profile = CONTEXT_PROMPT_PROFILES.get(context_mode, CONTEXT_PROMPT_PROFILES["standard"])
+    lang = "fr" if language == "fr" else "en"
+    structure = _get_expected_context_structure(lang, context_mode)
+    max_context = max(2000, int(get_max_context_chars() * profile["context_share"]))
+
+    sections = [
+        _tagged(
+            "project_documents",
+            _truncate_text(priority_context_documents, max_context, lang) or TEXTS[lang]["no_documents"],
+        )
+    ]
+
+    json_budget = int(get_max_json_chars() * profile["json_share"])
+    if json_source and json_source.strip() and json_budget > 0:
+        try:
+            pruned = prune_json_for_prompt(json.loads(json_source), json_budget)
+        except ValueError:
+            pruned = None
+        if pruned is not None:
+            text, reduced = pruned
+            note = TEXTS[lang]["json_note"]
+            if reduced:
+                note += TEXTS[lang]["json_reduced"]
+            sections.append(_tagged("application_json", f"{note}\n{text}"))
+
+    sections.append(
+        _tagged(
+            "json_analysis",
+            format_analysis_for_prompt_compact(
+                analysis,
+                include_paths=False,
+                max_feature_groups=profile["max_feature_groups"],
+                max_components_per_group=profile["max_components_per_group"],
+                max_fields=profile["max_fields"],
+                max_labels=profile["max_labels"],
+                max_placeholders=profile["max_placeholders"],
+            ),
+        )
+    )
+    if profile["include_component_library"] and component_library_summary and component_library_summary.strip():
+        sections.append(_tagged("component_library", _truncate_text(component_library_summary, 4000)))
+
+    sections.append(_tagged("output_structure", structure))
+    sections.append(_tagged("writing_rules", TEXTS[lang]["writing_rules"]))
+    level = "compact" if context_mode == "light" else detail_level
+    sections.append(_tagged("detail_level", DETAIL_LEVEL_RULES[lang].get(level, DETAIL_LEVEL_RULES[lang]["standard"])))
+    if context_mode != "light":
+        sections.append(_tagged("examples", _EXAMPLES[lang]))
+    sections.append(TEXTS[lang]["write_now"])
+
+    messages = [
+        {"role": "system", "content": build_context_system_prompt(lang)},
+        {"role": "user", "content": "\n\n".join(sections)},
+    ]
+    return messages, structure
+
+
+def _issues_message(issues: list[str], language: str) -> str:
+    return "\n".join([TEXTS["fr" if language == "fr" else "en"]["fix"], *(f"- {issue}" for issue in issues)])
 
 
 def generate_context_markdown(
-    global_json_source: str,
-    designer_description: str,
+    json_source: str,
     language: str,
     detail_level: str,
     analysis: dict[str, Any],
     context_mode: str = "standard",
     component_library_summary: str | None = None,
     priority_context_documents: str | None = None,
-) -> str:
+) -> dict[str, Any]:
+    """Returns {"markdown", "warnings", "corrected"}."""
     client = get_openai_client()
-    profile = CONTEXT_PROMPT_PROFILES.get(context_mode, CONTEXT_PROMPT_PROFILES["standard"])
-    context_summary = build_context_summary(analysis, mode=context_mode)
-    expected_structure = _get_expected_context_structure(language, context_mode)
-    trimmed_priority_context_documents = _truncate_text(
-        priority_context_documents,
-        profile["max_priority_context_chars"],
-    )
-    trimmed_component_library_summary = (
-        _truncate_text(component_library_summary, 4000)
-        if profile["include_component_library"]
-        else "No component library provided."
+    lang = "fr" if language == "fr" else "en"
+    messages, structure = _build_messages(
+        language=lang,
+        detail_level=detail_level,
+        context_mode=context_mode,
+        json_source=json_source,
+        analysis=analysis,
+        priority_context_documents=priority_context_documents,
+        component_library_summary=component_library_summary,
     )
 
-    system_prompt = (
-        "You are a senior UX architecture and product discovery assistant. "
-        "Generate a structured Markdown context document from a global application JSON and a free-form designer description. "
-        "The output must resemble a UX architecture / HMI project overview document, not a simple note. "
-        "Do not invent facts. Distinguish observations, hypotheses, and open questions. "
-        "Return clean Markdown only."
-    )
+    markdown = unwrap_markdown_fence(complete(client, messages))
+    if not markdown.strip():
+        return {"markdown": "# Error\n\nNo content returned by model.\n", "warnings": [], "corrected": False}
 
-    user_prompt = "\n\n".join(
-        [
-            f"Output language: {'French' if language == 'fr' else 'English'}",
-            f"Detail level: {detail_level}",
-            f"Context generation mode: {context_mode}",
-            f"Expected Markdown structure:\n{expected_structure}",
-            f"Priority project context documents:\n{trimmed_priority_context_documents or 'No priority project context documents provided.'}",
-            f"Designer free-form description:\n{_truncate_text(designer_description, 3000) or 'No designer description provided.'}",
-            f"Structured JSON analysis:\n{format_analysis_for_prompt_compact(analysis, include_paths=False, max_feature_groups=profile['max_feature_groups'], max_components_per_group=profile['max_components_per_group'], max_fields=profile['max_fields'], max_labels=profile['max_labels'], max_placeholders=profile['max_placeholders'])}",
-            f"Application summary derived from the JSON:\n{context_summary}",
-            f"Component library reference summary:\n{trimmed_component_library_summary}",
-            "Important constraints:\n"
-            "- Use professional, clear, architecture-oriented wording.\n"
-            "- Produce a document close to a UX architecture / project overview deliverable.\n"
-            "- Do not focus only on visible widgets; describe navigation logic, macro layout, interaction model, and usage patterns.\n"
-            "- Include user flow steps with user action and system feedback when they can be inferred.\n"
-            "- Mention personas if they are explicit or strongly suggested by the provided material; otherwise mark them as hypotheses.\n"
-            "- Describe fixed zones, contextual panels, navigation logic, and secondary interaction patterns when relevant.\n"
-            "- Add loading, notifications, and accessibility/system considerations when they are supported by the context or are strong UX architecture implications.\n"
-            "- If an item is uncertain, place it under hypotheses or open questions.\n"
-            "- Produce a document usable as a foundation for later detailed specification work.\n"
-            "- Treat the priority project context documents and the designer description as the primary sources for product intent, user needs, UX framing, research insights, and business rationale.\n"
-            "- Use the structured analysis and the application summary derived from the JSON as secondary sources to validate structure, visible zones, navigation clues, and interaction hints.\n"
-            + (
-                "- For Architecture & Navigation, actively use the JSON-derived structure to identify fixed zones, panels, view hierarchy, primary navigation, secondary navigation, and likely entry points.\n"
-                "- For User flow, combine business intent with the actions, labels, sections, and feature groups detected in the JSON to describe concrete step-by-step flows.\n"
-                "- For UX patterns, actively look for evidence of loading, feedback, alerts, form behavior, filtering, contextual panels, and primary versus secondary actions in the JSON-derived material.\n"
-                "- For System specifications and accessibility, extract or cautiously infer robust signals such as spacing logic, keyboard navigation, form density, feedback consistency, and recurring structural rules when supported by the JSON.\n"
-                if language != "fr"
-                else "- Pour la section Architecture & Navigation, exploiter activement la structure issue du JSON afin d’identifier les zones fixes, panneaux, hiérarchie des vues, navigation principale, navigation secondaire et points d’entrée probables.\n"
-                "- Pour les parcours utilisateur, combiner l’intention métier avec les actions, labels, sections et groupes fonctionnels détectés dans le JSON afin de décrire des séquences concrètes étape par étape.\n"
-                "- Pour les patterns UX, rechercher activement dans les éléments issus du JSON des indices de chargement, feedback, alertes, comportements de formulaires, filtres, panneaux contextuels et actions principales versus secondaires.\n"
-                "- Pour les spécifications système et l’accessibilité, extraire ou inférer prudemment les signaux robustes tels que la logique d’espacement, la navigation clavier, la densité des formulaires, la cohérence du feedback et les règles structurelles récurrentes lorsqu’ils sont appuyés par le JSON.\n"
+    issues = check_against_structure(markdown, structure, lang)
+    corrected = False
+    if issues:
+        # One correction pass with the precise list of problems.
+        try:
+            retry = complete(
+                client,
+                [*messages, {"role": "assistant", "content": markdown}, {"role": "user", "content": _issues_message(issues, lang)}],
+                temperature=0,
             )
-            + "- Treat the component library as a tertiary design-system reference, not as proof that a component is present in the analyzed feature.\n"
-            "- Use the component library only to refine terminology, likely variants, and standard interaction patterns when they are consistent with the primary sources.\n"
-            "- Do not infer the presence of a component solely because it exists in the component library.\n"
-            "- Do not restate raw technical paths unless they are useful for understanding the UX structure.\n"
-            "- Prioritize synthesis over exhaustiveness.\n"
-            + (
-                "- Macro layout must be rendered as a Markdown table, not as bullet points.\n"
-                "- Sub-level presentation must be rendered as a Markdown table when the section is present.\n"
-                "- Hypotheses must be rendered as a Markdown table, not as bullet points.\n"
-                "- Open questions must be rendered as a Markdown table, not as bullet points.\n"
-                if language != "fr"
-                else "- La section Macro layout doit être rendue sous forme de tableau Markdown, pas sous forme de puces.\n"
-                "- La présentation des sous-niveaux doit être rendue sous forme de tableau Markdown lorsque la section est présente.\n"
-                "- Les hypothèses doivent être rendues sous forme de tableau Markdown, pas sous forme de puces.\n"
-                "- Les questions ouvertes doivent être rendues sous forme de tableau Markdown, pas sous forme de puces.\n"
-            )
-            + "- Use exactly the requested table column names when they are specified in the expected structure.\n"
-            + (
-                "- Do not replace these required tables with paragraphs, nested bullets, or '+' lists.\n"
-                if language != "fr"
-                else "- Ne remplacez pas ces tableaux obligatoires par des paragraphes, des sous-puces ou des listes commençant par '+'.\n"
-            )
-            + (
-                "- In light mode, favor a shorter and more robust document over a highly detailed one."
-                if language != "fr"
-                else "- En mode light, privilégier un document plus court et plus robuste plutôt qu’un document trop détaillé."
-            ),
-        ]
-    )
+            fixed = unwrap_markdown_fence(retry)
+        except Exception:
+            logger.warning("Context correction pass failed", exc_info=True)
+            fixed = ""
+        if fixed.strip():
+            fixed_issues = check_against_structure(fixed, structure, lang)
+            if len(fixed_issues) <= len(issues):
+                markdown, issues, corrected = fixed, fixed_issues, True
 
-    response = client.chat.completions.create(
-        model=get_model_name(),
-        temperature=0.2,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    )
-
-    return response.choices[0].message.content or "# Error\n\nNo content returned by model."
+    return {
+        "markdown": markdown,
+        "warnings": format_warnings({"structure": issues, "unknown_components": []}),
+        "corrected": corrected,
+    }

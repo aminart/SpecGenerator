@@ -8,8 +8,8 @@ import type { ContextResult, Language, LoadedFile } from "../lib/types";
 import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
-import { MermaidDiagram } from "./MermaidDiagram";
-import { EmptyPanel, ExportButtons, MarkdownEditor, ProgressPanel, ResultCard } from "./ResultCard";
+import { MermaidDiagram, mermaidError } from "./MermaidDiagram";
+import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -67,10 +67,12 @@ export function ContextPage({
       update({ result: { ...generated, generatedAt: new Date().toISOString() }, flowMermaid: "" });
       setActiveTab("preview");
       toast(
-        generated.retried_light ? "info" : "success",
+        generated.retried_light || generated.warnings?.length ? "info" : "success",
         generated.retried_light
           ? "Contexte généré après une nouvelle tentative en mode allégé (délai dépassé)."
-          : `Document de contexte généré en ${generated.timings.total} s.`,
+          : generated.warnings?.length
+            ? `Document de contexte généré en ${generated.timings.total} s, avec des points à vérifier.`
+            : `Document de contexte généré en ${generated.timings.total} s.`,
       );
     } catch (error) {
       toast("error", (error as Error).message);
@@ -83,7 +85,13 @@ export function ContextPage({
     if (!result) return;
     setIsGeneratingFlow(true);
     try {
-      const { mermaid } = await api.generateMermaid(result.markdown, state.language);
+      let { mermaid } = await api.generateMermaid(result.markdown, state.language);
+      const error = await mermaidError(mermaid);
+      if (error) {
+        // One correction round with the parser's message; keep the first version if it is no better.
+        const fixed = await api.generateMermaid(result.markdown, state.language, { previous_code: mermaid, error });
+        if (!(await mermaidError(fixed.mermaid))) mermaid = fixed.mermaid;
+      }
       update({ flowMermaid: mermaid });
     } catch (error) {
       toast("error", (error as Error).message);
@@ -167,14 +175,17 @@ export function ContextPage({
           tabs={[
             { id: "preview", label: "Aperçu" },
             { id: "journeys", label: "Parcours utilisateur" },
-            { id: "edit", label: "Modifier" },
           ]}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           actions={<ExportButtons kind="context" markdown={result.markdown} language={state.language} />}
         >
-          {activeTab === "preview" && <MarkdownPreview markdown={stripTitle(result.markdown)} />}
-          {activeTab === "edit" && <MarkdownEditor value={result.markdown} onChange={(markdown) => update({ result: { ...result, markdown } })} />}
+          {activeTab === "preview" && (
+            <>
+              <WarningsPanel warnings={result.warnings} />
+              <MarkdownPreview markdown={stripTitle(result.markdown)} />
+            </>
+          )}
           {activeTab === "journeys" && (
             <div className="flex flex-col gap-10">
               <section>

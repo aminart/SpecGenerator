@@ -6,7 +6,7 @@ import type { FeatureImage, Language, LoadedFile, SpecResult } from "../lib/type
 import { AddFileButton, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { MarkdownPreview } from "./MarkdownPreview";
-import { EmptyPanel, ExportButtons, MarkdownEditor, ProgressPanel, ResultCard } from "./ResultCard";
+import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -38,7 +38,6 @@ export function SpecPage({
 }) {
   const toast = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState("preview");
   const result = state.result;
   const usesGeneratedContext = !state.importedContext && Boolean(generatedContext);
   const businessContext = state.importedContext ? String(state.importedContext.content) : generatedContext;
@@ -55,8 +54,13 @@ export function SpecPage({
         language: state.language,
       });
       update({ result: { ...generated, generatedAt: new Date().toISOString() } });
-      setActiveTab("preview");
-      toast("success", `Spécification générée en ${generated.timings.total} s.`);
+      const warningCount = generated.warnings?.length ?? 0;
+      toast(
+        warningCount ? "info" : "success",
+        warningCount
+          ? `Spécification générée en ${generated.timings.total} s, avec ${warningCount} point${warningCount > 1 ? "s" : ""} à vérifier.`
+          : `Spécification générée en ${generated.timings.total} s.`,
+      );
     } catch (error) {
       toast("error", (error as Error).message);
     } finally {
@@ -187,19 +191,10 @@ export function SpecPage({
           eyebrow={state.language === "en" ? "Detailed UX / HMI specification" : "Spécification UX / HMI détaillée"}
           title={documentTitle(result.markdown, state.language === "en" ? "UX / HMI Specification" : "Spécification UX / HMI")}
           meta={`Généré le ${formatDateTime(result.generatedAt)} · ${LANGUAGE_LABELS[state.language]}`}
-          tabs={[
-            { id: "preview", label: "Aperçu" },
-            { id: "edit", label: "Modifier" },
-          ]}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
           actions={<ExportButtons kind="spec" markdown={result.markdown} language={state.language} image={state.image} />}
         >
-          {activeTab === "preview" ? (
-            <MarkdownPreview markdown={stripTitle(result.markdown)} image={state.image} imageAlt={documentTitle(result.markdown, "Feature")} />
-          ) : (
-            <MarkdownEditor value={result.markdown} onChange={(markdown) => update({ result: { ...result, markdown } })} />
-          )}
+          <WarningsPanel warnings={result.warnings} />
+          <MarkdownPreview markdown={stripTitle(result.markdown)} image={state.image} imageAlt={documentTitle(result.markdown, "Feature")} />
         </ResultCard>
       ) : (
         <EmptyPanel icon={<Monitor className="h-[30px] w-[30px]" strokeWidth={1.6} />} title="Aucune spécification pour le moment">
@@ -208,7 +203,7 @@ export function SpecPage({
             {usesGeneratedContext ? " Le contexte généré à l’étape précédente est déjà pris en compte." : ""}
           </p>
           <p className="mt-2 max-w-[480px] text-[13px] leading-normal text-ink-subtle">
-            La spécification contiendra : vue d’ensemble, variantes, détail des composants, erreurs possibles, hypothèses et questions ouvertes.
+            La spécification contiendra : vue d’ensemble, variantes, détail des composants, textes de l’interface, données affichées, erreurs possibles, hypothèses et questions ouvertes.
           </p>
         </EmptyPanel>
       )}

@@ -39,8 +39,9 @@ from document_export import (
     normalize_markdown_title,
 )
 from journey_analysis import analyze_user_journeys_from_json
+from generation_log import generation_journal, set_result
 from json_analysis import analyze_json_structure, classify_component_scope
-from markdown_cleanup import replace_json_paths_with_names, unwrap_markdown_fence
+from markdown_cleanup import unwrap_markdown_fence
 from drawio_converter import NotADrawioFile
 from markdown_converter import SUPPORTED_EXTENSIONS, convert_to_markdown
 from mermaid_generator import generate_mermaid_flow_from_context
@@ -70,13 +71,17 @@ class ContextRequest(BaseModel):
     json_sources: list[SourceFile] = Field(default_factory=list)
     component_library: Any | None = None
     language: Language = "fr"
-    detail_level: DetailLevel = "standard"
+    # The interface always wants the most detailed document.
+    detail_level: DetailLevel = "detailed"
     mode: Literal["standard", "light"] = "standard"
 
 
 class MermaidRequest(BaseModel):
     markdown: str
     language: Language = "fr"
+    # Sent by the frontend when the diagram it received does not parse: the model fixes it.
+    previous_code: str | None = None
+    error: str | None = None
 
 
 class SpecRequest(BaseModel):
@@ -84,7 +89,8 @@ class SpecRequest(BaseModel):
     spec_json: Any
     component_library: Any | None = None
     language: Language = "fr"
-    detail_level: DetailLevel = "standard"
+    # The interface always wants the most detailed document.
+    detail_level: DetailLevel = "detailed"
 
 
 class MarkdownDocument(BaseModel):
@@ -186,9 +192,9 @@ def generate_context(request: ContextRequest) -> dict[str, Any]:
     if request.designer_description.strip():
         priority_parts.append(f"# Description designer\n\n{request.designer_description.strip()}")
 
+    # The designer description is already in the priority documents: it is not sent twice.
     generation_kwargs = dict(
-        global_json_source=context_source_text,
-        designer_description=request.designer_description,
+        json_source=json_text,
         language=request.language,
         detail_level=request.detail_level,
         analysis=analysis,
@@ -198,20 +204,26 @@ def generate_context(request: ContextRequest) -> dict[str, Any]:
 
     retried_light = False
     llm_start = time.perf_counter()
-    try:
+    sources = [source.name for source in request.json_sources + request.markdown_sources]
+    with generation_journal("context", language=request.language, mode=request.mode, sources=sources):
         try:
-            generated = generate_context_markdown(context_mode=request.mode, **generation_kwargs)
+            try:
+                generated = generate_context_markdown(context_mode=request.mode, **generation_kwargs)
+            except Exception as exc:
+                if request.mode != "standard" or not is_timeout_error(exc):
+                    raise
+                retried_light = True
+                llm_start = time.perf_counter()
+                generated = generate_context_markdown(context_mode="light", **generation_kwargs)
         except Exception as exc:
-            if request.mode != "standard" or not is_timeout_error(exc):
-                raise
-            retried_light = True
-            llm_start = time.perf_counter()
-            generated = generate_context_markdown(context_mode="light", **generation_kwargs)
-    except Exception as exc:
-        raise _generation_error(exc) from exc
+            raise _generation_error(exc) from exc
+
+        set_result(markdown=generated["markdown"], warnings=generated["warnings"], corrected=generated["corrected"], retried_light=retried_light)
 
     return {
-        "markdown": unwrap_markdown_fence(generated),
+        "markdown": generated["markdown"],
+        "warnings": generated["warnings"],
+        "corrected": generated["corrected"],
         "journey_markdown": journey_result["journey_markdown"],
         "journey_mermaid": journey_result["journey_mermaid"],
         "retried_light": retried_light,
@@ -226,10 +238,16 @@ def generate_context(request: ContextRequest) -> dict[str, Any]:
 @app.post("/api/context/mermaid")
 def generate_mermaid(request: MermaidRequest) -> dict[str, str]:
     _require_llm()
-    try:
-        return {"mermaid": generate_mermaid_flow_from_context(request.markdown, request.language)}
-    except Exception as exc:
-        raise _generation_error(exc) from exc
+    with generation_journal("mermaid", language=request.language, fix=bool(request.previous_code and request.error)):
+        try:
+            return {
+                "mermaid": generate_mermaid_flow_from_context(
+                    request.markdown, request.language, previous_code=request.previous_code, error=request.error
+                )
+            }
+        except Exception as exc:
+            raise _generation_error(exc) from exc
+
 
 
 @app.post("/api/spec/generate")
@@ -240,25 +258,38 @@ def generate_spec_document(request: SpecRequest) -> dict[str, Any]:
     scope = classify_component_scope(analysis)
     business_context = request.business_context.strip()
 
-    try:
-        generated = generate_spec(
-            json_source=json.dumps(request.spec_json, ensure_ascii=False, indent=2),
-            business_context=business_context,
-            language=request.language,
-            detail_level=request.detail_level,
-            template_key=SPEC_TEMPLATE_KEY,
-            analysis=analysis,
-            custom_template=None,
-            component_library_summary=_component_library_summary(request.component_library),
-            priority_context_documents=f"# Contexte de référence\n\n{business_context}" if business_context else None,
-            component_scope_label=scope["label"],
-            component_scope_rationale=scope["rationale"],
+    with generation_journal("spec", language=request.language, scope=scope["scope"], has_context=bool(business_context)):
+        try:
+            generated = generate_spec(
+                json_source=json.dumps(request.spec_json, ensure_ascii=False, indent=2),
+                # The context goes in once, as the priority source: passing it a second time as
+                # business context only doubled the prompt.
+                business_context="",
+                language=request.language,
+                detail_level=request.detail_level,
+                template_key=SPEC_TEMPLATE_KEY,
+                analysis=analysis,
+                custom_template=None,
+                component_library_summary=_component_library_summary(request.component_library),
+                priority_context_documents=f"# Contexte de référence\n\n{business_context}" if business_context else None,
+                component_scope_label=scope["label"],
+                component_scope_rationale=scope["rationale"],
+            )
+        except Exception as exc:
+            raise _generation_error(exc) from exc
+
+        set_result(
+            markdown=generated["markdown"],
+            warnings=generated["warnings"],
+            corrected=generated["corrected"],
+            inventory=generated["inventory"],
         )
-    except Exception as exc:
-        raise _generation_error(exc) from exc
 
     return {
-        "markdown": replace_json_paths_with_names(unwrap_markdown_fence(generated), request.spec_json),
+        "markdown": generated["markdown"],
+        "warnings": generated["warnings"],
+        "corrected": generated["corrected"],
+        "inventory": generated["inventory"],
         "scope": scope,
         "timings": {"total": round(time.perf_counter() - timing_start, 1)},
     }

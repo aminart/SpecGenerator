@@ -414,6 +414,10 @@ def _repair_structured_section_table(heading: str, section_lines: list[str]) -> 
         "hypothèses": ["ID", "Hypothèse", "Justification", "Niveau de confiance"],
         "hypotheses": ["ID", "Hypothesis", "Rationale", "Confidence level"],
         "questions ouvertes": ["ID", "Question", "Contexte", "Impact"],
+        "liste des écrans": ["Écran", "Rôle", "Accès depuis", "Specs liées"],
+        "screen list": ["Screen", "Role", "Accessed from", "Related specs"],
+        "glossaire métier": ["Terme", "Définition", "Source"],
+        "business glossary": ["Term", "Definition", "Source"],
         "open questions": ["ID", "Question", "Context", "Impact"],
     }
     expected_headers = expected_headers_by_heading.get(normalized_heading)

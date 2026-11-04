@@ -30,6 +30,18 @@ Elle se configure dans l'écran **Paramètres** de l'application (URL, clé API,
 
 Un fichier `.env` placé à côté de l'exe (ou à la racine du projet) est prioritaire, champ par champ : voir `.env.example`.
 
+Réglages de génération (facultatifs, dans le `.env`), pensés pour Mistral Small (128 000 tokens de contexte) :
+
+- `CUSTOM_MAX_JSON_CHARS` (80 000 par défaut) : taille maximale du JSON d'écran envoyé pour la spec, sous forme allégée (sans géométrie ni styles). Au-delà, les longues listes puis les niveaux les plus profonds sont coupés. Le contexte en utilise la moitié pour le JSON de l'application.
+- `CUSTOM_MAX_CONTEXT_CHARS` (80 000 par défaut) : taille maximale des documents Markdown du contexte.
+- `CUSTOM_MAX_OUTPUT_TOKENS` (16 000 par défaut) : longueur maximale d'une réponse. Une réponse coupée est automatiquement poursuivie (3 fois au plus). Si le service refuse cette valeur, l'appel est refait sans.
+
+Le bouton **Tester la connexion** vérifie aussi ce dont la génération a besoin : la longueur de réponse demandée, le mode JSON et la plus grande taille de prompt envoyée. Si un réglage doit être baissé, il l'indique (le test peut durer jusqu'à 3 minutes).
+
+Pour analyser les résultats, cochez **Enregistrer un journal des générations** dans les options avancées des Paramètres (ou `CUSTOM_GENERATION_LOG=1` dans le `.env`). Chaque génération écrit alors un fichier JSON dans le dossier `journal` des paramètres : prompts envoyés, réponses brutes, motif de fin de réponse, corrections, avertissements et durées. Seuls les 100 derniers fichiers sont conservés, et ils restent sur le poste.
+
+Le délai par défaut est de 300 secondes : une génération peut enchaîner plusieurs appels (inventaire, rédaction, correction).
+
 ## Templates Word
 
 Les exports DOCX partent des fichiers `Template_Documentatio_{Specs,Context}_{fr,en}.docx`. Pour les personnaliser, ouvrez-les dans Word :
@@ -55,6 +67,15 @@ cd frontend
 npm install
 npm run dev
 ```
+
+Tests (backend, sans appel au modèle : un client simulé renvoie des réponses préparées) :
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+Les tests utilisent deux exports Figma de démonstration dans `tests/fixtures` (régénérables avec `python tests/make_fixture.py`). Ils couvrent l'analyse JSON, l'allègement du JSON, les vérifications de structure, l'appel au modèle (reprise des réponses coupées, options refusées) et les routes de l'API. Le workflow GitHub « Tests » les lance à chaque push, avec la vérification des types et le build du frontend.
 
 Build de production : `cd frontend && npm run build`, puis `uvicorn main:app --app-dir backend` et ouvrir http://127.0.0.1:8000.
 

@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from app_paths import config_dir, env_file
 
 DEFAULT_MODEL = "mistral"
-DEFAULT_TIMEOUT_SECONDS = 180.0
+DEFAULT_TIMEOUT_SECONDS = 300.0
 CERTIFICATE_FILENAME = "ca.crt"
 
 # Field name -> environment variable that overrides it.
@@ -133,9 +133,16 @@ def saved_api_key() -> str:
         return ""
 
 
-def save_settings(api_base: str, api_key: str | None, model: str, timeout: float) -> None:
+def save_settings(api_base: str, api_key: str | None, model: str, timeout: float, generation_log: bool = False) -> None:
     data = load_saved()
-    data.update({"api_base": api_base.strip(), "model": model.strip() or DEFAULT_MODEL, "timeout": timeout})
+    data.update(
+        {
+            "api_base": api_base.strip(),
+            "model": model.strip() or DEFAULT_MODEL,
+            "timeout": timeout,
+            "generation_log": generation_log,
+        }
+    )
     if api_key is not None:
         data["api_key"] = _encrypt(api_key.strip()) if api_key.strip() else None
     _write_saved(data)
@@ -220,4 +227,12 @@ def public_settings() -> dict[str, Any]:
         "model": effective.model,
         "timeout": effective.timeout,
         "last_test": saved.get("last_test"),
+        # Journal of the generations (see generation_log.py); CUSTOM_GENERATION_LOG overrides it.
+        "generation_log": (
+            os.getenv("CUSTOM_GENERATION_LOG", "").strip().lower() in ("1", "true", "yes", "oui")
+            if os.getenv("CUSTOM_GENERATION_LOG", "").strip()
+            else bool(saved.get("generation_log"))
+        ),
+        "generation_log_from_env": bool(os.getenv("CUSTOM_GENERATION_LOG", "").strip()),
+        "generation_log_dir": str(config_dir() / "journal"),
     }

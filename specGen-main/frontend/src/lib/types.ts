@@ -39,6 +39,8 @@ export interface ConnectionTest {
   message: string;
   at: string;
   model?: string;
+  /** What the generation relies on: output length, JSON mode, prompt size. */
+  checks?: { name: string; ok: boolean; message: string }[];
 }
 
 export interface ConnectionSettings {
@@ -54,6 +56,9 @@ export interface ConnectionSettings {
   model: string;
   timeout: number;
   last_test: ConnectionTest | null;
+  generation_log: boolean;
+  generation_log_from_env: boolean;
+  generation_log_dir: string;
 }
 
 export interface SettingsForm {
@@ -61,6 +66,7 @@ export interface SettingsForm {
   api_key: string | null;
   model: string;
   timeout: number;
+  generation_log: boolean;
 }
 
 export interface ComponentScope {
@@ -74,12 +80,19 @@ export interface ContextResult {
   journey_markdown: string;
   journey_mermaid: string;
   retried_light: boolean;
+  /** Problems still found after the correction pass (missing headings, tables…). */
+  warnings?: string[];
+  corrected?: boolean;
   timings: { analysis: number; llm: number; total: number };
   generatedAt?: string;
 }
 
 export interface SpecResult {
   markdown: string;
+  /** Problems still found after the correction pass (missing headings, components absent from the JSON…). */
+  warnings?: string[];
+  corrected?: boolean;
+  inventory?: boolean;
   scope: ComponentScope;
   timings: { total: number };
   generatedAt?: string;
