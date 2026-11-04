@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, Download } from "lucide-react";
 import { downloadExport } from "../lib/api";
+import { formatDateTime, LANGUAGE_LABELS } from "../lib/files";
 import type { DocKind, FeatureImage, Language } from "../lib/types";
 import { useToast } from "./Toasts";
 
@@ -67,6 +68,25 @@ export function ResultCard({
       <div className="mt-6 border-t border-line px-6 pb-10 pt-8 sm:px-10">{children}</div>
     </div>
   );
+}
+
+interface DocumentResult {
+  markdown: string;
+  generatedAt?: string;
+  originalMarkdown?: string;
+  editedAt?: string;
+}
+
+export function documentMeta(result: DocumentResult, language: Language): string {
+  const edited = result.editedAt && result.originalMarkdown !== undefined && result.originalMarkdown !== result.markdown;
+  return [`Généré le ${formatDateTime(result.generatedAt)}`, edited && `modifié le ${formatDateTime(result.editedAt)}`, LANGUAGE_LABELS[language]]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** The result with the user's edit; the generated text is kept the first time. */
+export function editedResult<T extends DocumentResult>(result: T, markdown: string): T {
+  return { ...result, markdown, originalMarkdown: result.originalMarkdown ?? result.markdown, editedAt: new Date().toISOString() };
 }
 
 export function ExportButtons({

@@ -3,13 +3,13 @@ import { ArrowRight, Download, FileText, Layers, Wand2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, downloadText } from "../lib/api";
-import { documentTitle, formatDateTime, formatSize, LANGUAGE_LABELS, readJsonFile, readTextFile, stripTitle } from "../lib/files";
+import { documentTitle, formatSize, readJsonFile, readTextFile } from "../lib/files";
 import type { ContextResult, Language, LoadedFile } from "../lib/types";
 import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
-import { MarkdownPreview } from "./MarkdownPreview";
+import { DocumentView, EditToggle } from "./DocumentEditor";
 import { MermaidDiagram, mermaidError } from "./MermaidDiagram";
-import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
+import { documentMeta, editedResult, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -40,6 +40,7 @@ export function ContextPage({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingFlow, setIsGeneratingFlow] = useState(false);
   const [activeTab, setActiveTab] = useState("preview");
+  const [editing, setEditing] = useState(false);
   const result = state.result;
   const hasSource = state.markdownFiles.length > 0 || state.jsonFiles.length > 0;
 
@@ -66,6 +67,7 @@ export function ContextPage({
       });
       update({ result: { ...generated, generatedAt: new Date().toISOString() }, flowMermaid: "" });
       setActiveTab("preview");
+      setEditing(false);
       toast(
         generated.retried_light || generated.warnings?.length ? "info" : "success",
         generated.retried_light
@@ -166,7 +168,7 @@ export function ContextPage({
         <ResultCard
           eyebrow={state.language === "en" ? "UX Architecture · Global application context" : "Architecture UX · Contexte global application"}
           title={documentTitle(result.markdown, state.language === "en" ? "UX Architecture / Project overview" : "Architecture UX / Project overview")}
-          meta={`Généré le ${formatDateTime(result.generatedAt)} · ${LANGUAGE_LABELS[state.language]}`}
+          meta={documentMeta(result, state.language)}
           cta={
             <button type="button" className="btn-soft" onClick={onUseInSpec}>
               Utiliser pour la spécification <ArrowRight className="h-4 w-4" aria-hidden />
@@ -178,12 +180,22 @@ export function ContextPage({
           ]}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          actions={<ExportButtons kind="context" markdown={result.markdown} language={state.language} />}
+          actions={
+            <>
+              {activeTab === "preview" && <EditToggle editing={editing} onToggle={() => setEditing(!editing)} />}
+              <ExportButtons kind="context" markdown={result.markdown} language={state.language} />
+            </>
+          }
         >
           {activeTab === "preview" && (
             <>
               <WarningsPanel warnings={result.warnings} />
-              <MarkdownPreview markdown={stripTitle(result.markdown)} />
+              <DocumentView
+                markdown={result.markdown}
+                originalMarkdown={result.originalMarkdown}
+                editing={editing}
+                onChange={(markdown) => update({ result: editedResult(result, markdown) })}
+              />
             </>
           )}
           {activeTab === "journeys" && (

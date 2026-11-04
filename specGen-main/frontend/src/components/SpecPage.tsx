@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { FileText, Layers, Monitor } from "lucide-react";
 import { api } from "../lib/api";
-import { documentTitle, formatDateTime, formatSize, LANGUAGE_LABELS, readImageFile, readJsonFile, readTextFile, stripTitle } from "../lib/files";
+import { documentTitle, formatSize, readImageFile, readJsonFile, readTextFile } from "../lib/files";
 import type { FeatureImage, Language, LoadedFile, SpecResult } from "../lib/types";
 import { AddFileButton, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
-import { MarkdownPreview } from "./MarkdownPreview";
-import { EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
+import { DocumentView, EditToggle } from "./DocumentEditor";
+import { documentMeta, editedResult, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -38,6 +38,7 @@ export function SpecPage({
 }) {
   const toast = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [editing, setEditing] = useState(false);
   const result = state.result;
   const usesGeneratedContext = !state.importedContext && Boolean(generatedContext);
   const businessContext = state.importedContext ? String(state.importedContext.content) : generatedContext;
@@ -54,6 +55,7 @@ export function SpecPage({
         language: state.language,
       });
       update({ result: { ...generated, generatedAt: new Date().toISOString() } });
+      setEditing(false);
       const warningCount = generated.warnings?.length ?? 0;
       toast(
         warningCount ? "info" : "success",
@@ -190,11 +192,23 @@ export function SpecPage({
         <ResultCard
           eyebrow={state.language === "en" ? "Detailed UX / HMI specification" : "Spécification UX / HMI détaillée"}
           title={documentTitle(result.markdown, state.language === "en" ? "UX / HMI Specification" : "Spécification UX / HMI")}
-          meta={`Généré le ${formatDateTime(result.generatedAt)} · ${LANGUAGE_LABELS[state.language]}`}
-          actions={<ExportButtons kind="spec" markdown={result.markdown} language={state.language} image={state.image} />}
+          meta={documentMeta(result, state.language)}
+          actions={
+            <>
+              <EditToggle editing={editing} onToggle={() => setEditing(!editing)} />
+              <ExportButtons kind="spec" markdown={result.markdown} language={state.language} image={state.image} />
+            </>
+          }
         >
           <WarningsPanel warnings={result.warnings} />
-          <MarkdownPreview markdown={stripTitle(result.markdown)} image={state.image} imageAlt={documentTitle(result.markdown, "Feature")} />
+          <DocumentView
+            markdown={result.markdown}
+            originalMarkdown={result.originalMarkdown}
+            editing={editing}
+            onChange={(markdown) => update({ result: editedResult(result, markdown) })}
+            image={state.image}
+            imageAlt={documentTitle(result.markdown, "Feature")}
+          />
         </ResultCard>
       ) : (
         <EmptyPanel icon={<Monitor className="h-[30px] w-[30px]" strokeWidth={1.6} />} title="Aucune spécification pour le moment">
