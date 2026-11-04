@@ -236,9 +236,48 @@ def unknown_texts(markdown: str, language: str, json_texts: set[str]) -> list[st
     return unknown
 
 
-def validate_spec(markdown: str, language: str, json_names: set[str], json_texts: set[str] | None = None) -> dict[str, list[str]]:
+_SCREEN_TABLES = (("Liste des écrans", "Écran"), ("Screen list", "Screen"))
+_ACCESS_SECTIONS = {"fr": ("Moyens d’accès", "Vue globale"), "en": ("Ways of access", "Global view")}
+
+
+def context_screen_names(context_markdown: str | None) -> list[str]:
+    """Screens of the context document (first column of its screen list), in either language."""
+    if not context_markdown:
+        return []
+    for title, column in _SCREEN_TABLES:
+        names = [cell for cell in _table_column(context_markdown, title, column) if normalize_name(cell) not in _EMPTY_CELL]
+        if names:
+            return names
+    return []
+
+
+def check_access_uses_context(markdown: str, language: str, screens: list[str]) -> list[str]:
+    """When the context lists the screens, the ways of access must name at least one of them."""
+    if not screens:
+        return []
+    lang = "fr" if language == "fr" else "en"
+    access_title, overview_title = _ACCESS_SECTIONS[lang]
+    access = _find_section(markdown, access_title)
+    if access is None:
+        return []  # already reported as a missing heading
+    cited = normalize_name("\n".join(access + (_find_section(markdown, overview_title) or [])))
+    if any(normalize_name(screen) in cited for screen in screens):
+        return []
+    return [
+        f"La section « {access_title} » ne cite aucun écran de la Liste des écrans du contexte "
+        f"({', '.join(screens[:10])}) : indiquer depuis quel écran et par quelle action on accède à la feature."
+    ]
+
+
+def validate_spec(
+    markdown: str,
+    language: str,
+    json_names: set[str],
+    json_texts: set[str] | None = None,
+    context_screens: list[str] | None = None,
+) -> dict[str, list[str]]:
     return {
-        "structure": check_structure(markdown, language),
+        "structure": check_structure(markdown, language) + check_access_uses_context(markdown, language, context_screens or []),
         "unknown_components": unknown_component_names(markdown, language, json_names),
         "unknown_texts": unknown_texts(markdown, language, json_texts or set()),
     }

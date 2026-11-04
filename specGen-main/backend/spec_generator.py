@@ -17,7 +17,7 @@ from json_analysis import (
     to_text,
 )
 from markdown_cleanup import replace_json_paths_with_names, unwrap_markdown_fence
-from spec_validation import collect_json_names, collect_json_texts, format_issues_for_model, normalize_name, format_warnings, validate_spec
+from spec_validation import collect_json_names, collect_json_texts, context_screen_names, format_issues_for_model, normalize_name, format_warnings, validate_spec
 from openai_client import complete, get_openai_client
 from templates import TEMPLATES
 
@@ -457,6 +457,35 @@ TEXTS = {
     },
 }
 
+CONTEXT_USAGE = {
+    "fr": """Le contexte projet est un document produit en amont. Utilisez chacune de ses sections pour la partie correspondante de la spécification :
+| Section du contexte | Sert à remplir |
+|---|---|
+| Vue d’ensemble du projet, Description globale | Objectif (valeur pour l’utilisateur et le produit) |
+| Personas | Objectif (pour qui), Hypothèses |
+| Glossaire métier | Vocabulaire de tout le document : employer exactement ces termes |
+| Liste des écrans | Moyens d’accès (écran d’origine), Vue globale (écran où se trouve la feature) |
+| Navigation, Parcours utilisateur | Moyens d’accès (action, condition, prérequis), Comportement |
+| Macro layout, Présentation des sous-niveaux | Vue globale (place de la feature dans l’écran) |
+| Patterns UX (chargement, notifications, alertes) | Comportement, Erreurs possibles |
+| Spécifications système et accessibilité | Comportement (clavier, focus, espacements) |
+| Hypothèses et questions ouvertes | Reprendre celles qui concernent la feature dans Hypothèses et Questions ouvertes |
+Dans Moyens d’accès, nommer les écrans exactement comme dans la Liste des écrans du contexte.""",
+    "en": """The project context is a document produced upstream. Use each of its sections for the matching part of the specification:
+| Context section | Used for |
+|---|---|
+| Project overview, Global description | Goal (value for the user and the product) |
+| Personas | Goal (for whom), Assumptions |
+| Business glossary | Vocabulary of the whole document: use exactly these terms |
+| Screen list | Ways of access (screen of origin), Global view (screen holding the feature) |
+| Navigation pattern, User flow | Ways of access (action, condition, prerequisites), Behavior |
+| Macro layout, Sub-level presentation | Global view (place of the feature on the screen) |
+| UX patterns (loading, notifications, alerts) | Behavior, Possible errors |
+| System specifications and accessibility | Behavior (keyboard, focus, spacing) |
+| Hypotheses and open questions | Carry over those about the feature into Assumptions and Open questions |
+In Ways of access, name the screens exactly as in the context Screen list.""",
+}
+
 _EXAMPLES = {
     "fr": """Ces exemples montrent la forme et le niveau de précision attendus, pas le contenu : ne les recopiez pas.
 
@@ -612,9 +641,13 @@ def build_spec_system_prompt(language: str) -> str:
             "figure dans <screen_json> ou <json_analysis>.\n"
             "2. L’intention produit (objectif, besoin utilisateur, règle métier) n’est un fait que si elle figure "
             "dans <project_context>.\n"
-            "3. <component_library> sert seulement à préciser le vocabulaire et les états standard ; elle ne prouve "
+            "3. <project_context> est aussi une source valable pour la navigation, les parcours, les écrans, les "
+            "patterns UX (chargement, notifications, erreurs) et le vocabulaire. Ce qu’il dit de l’interface sans que "
+            "le JSON le confirme reçoit la confiance Moyen ; s’il contredit le JSON, le JSON l’emporte et l’écart "
+            "va dans les questions ouvertes.\n"
+            "4. <component_library> sert seulement à préciser le vocabulaire et les états standard ; elle ne prouve "
             "jamais qu’un composant est présent dans la feature.\n"
-            "4. Tout le reste, même plausible ou habituel, est une hypothèse ou une question ouverte. Une "
+            "5. Tout le reste, même plausible ou habituel, est une hypothèse ou une question ouverte. Une "
             "spécification fiable vaut mieux qu’une spécification spéculative.\n\n"
             f"Niveaux de confiance, avec exactement ces mots : {high} = appuyé directement par le JSON ou le "
             f"contexte projet ; {medium} = déduction solide croisant plusieurs sources ; {low} = hypothèse.\n\n"
@@ -628,9 +661,13 @@ def build_spec_system_prompt(language: str) -> str:
         "1. Visible UI (components, texts, states, variants, interactions) is a fact only when it appears in "
         "<screen_json> or <json_analysis>.\n"
         "2. Product intent (goal, user need, business rule) is a fact only when it appears in <project_context>.\n"
-        "3. <component_library> only refines terminology and standard states; it never proves that a component "
+        "3. <project_context> is also a valid source for navigation, user flows, screens, UX patterns (loading, "
+        "notifications, errors) and vocabulary. What it says about the interface without the JSON confirming it "
+        "gets the Medium confidence; when it contradicts the JSON, the JSON wins and the gap goes to the open "
+        "questions.\n"
+        "4. <component_library> only refines terminology and standard states; it never proves that a component "
         "is present in the feature.\n"
-        "4. Anything else, even plausible or conventional, is an assumption or an open question. A reliable "
+        "5. Anything else, even plausible or conventional, is an assumption or an open question. A reliable "
         "specification is better than a speculative one.\n\n"
         f"Confidence levels, in this exact wording: {high} = directly supported by the JSON or the project "
         f"context; {medium} = strong inference combining several sources; {low} = assumption.\n\n"
@@ -671,6 +708,7 @@ def generate_spec(
         data = None
     json_names = collect_json_names(data) if data is not None else set()
     json_texts = collect_json_texts(data) if data is not None else set()
+    context_screens = context_screen_names("\n\n".join(context_parts))
 
     sections = [
         _tagged("project_context", "\n\n".join(context_parts) or texts["no_context"]),
@@ -710,6 +748,8 @@ def generate_spec(
         output_structure = TEMPLATES[template_key]["prompt"]
     if custom_template and custom_template.strip():
         output_structure += f"\n\n{texts['custom_template']}\n{custom_template.strip()}"
+    if context_parts:
+        sections.append(_tagged("context_usage", CONTEXT_USAGE[lang]))
     sections.append(_tagged("output_structure", output_structure))
 
     low = _CONFIDENCE_LEVELS[lang][2]
@@ -733,7 +773,7 @@ def generate_spec(
     corrected = False
     issues: dict[str, list[str]] = {"structure": [], "unknown_components": [], "unknown_texts": []}
     if template_key == "ux_hmi_detailed":
-        issues = validate_spec(markdown, lang, json_names, json_texts)
+        issues = validate_spec(markdown, lang, json_names, json_texts, context_screens)
         if _issue_count(issues):
             # One correction pass with the precise list of problems; a second one rarely helps.
             try:
@@ -751,7 +791,7 @@ def generate_spec(
                 logger.warning("Spec correction pass failed", exc_info=True)
                 fixed = ""
             if fixed.strip():
-                fixed_issues = validate_spec(fixed, lang, json_names, json_texts)
+                fixed_issues = validate_spec(fixed, lang, json_names, json_texts, context_screens)
                 # Keep the correction unless it made things worse.
                 if _issue_count(fixed_issues) <= _issue_count(issues):
                     markdown, issues, corrected = fixed, fixed_issues, True

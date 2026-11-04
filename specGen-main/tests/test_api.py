@@ -18,6 +18,35 @@ def test_spec_prompt_holds_each_source_once(fake_llm, client, login_screen):
     assert fake_llm.system_prompt().startswith("Vous êtes")  # French instructions for a French output
 
 
+def test_spec_prompt_maps_the_context_sections(fake_llm, client, login_screen):
+    from test_validation import CONTEXT_WITH_SCREENS
+
+    context = CONTEXT_WITH_SCREENS.replace("| Connexion |", "| Profil |")
+    fake_llm.queue(GOOD_SPEC_FR, GOOD_SPEC_FR)
+    body = client.post("/api/spec/generate", json={"spec_json": login_screen, "business_context": context}).json()
+    prompt = fake_llm.user_prompt()
+    assert "<context_usage>" in prompt and "| Liste des écrans | Moyens d’accès" in prompt
+    assert "source valable pour la navigation" in fake_llm.system_prompt()
+    # The good spec names no context screen in its ways of access: one correction pass, then a warning.
+    assert len(fake_llm.calls) == 2
+    assert "Accueil, Profil" in fake_llm.calls[1]["messages"][-1]["content"]
+    assert body["warnings"][0].startswith("La section « Moyens d’accès » ne cite aucun écran")
+
+
+def test_ways_of_access_naming_a_context_screen_pass(fake_llm, client, login_screen):
+    from test_validation import CONTEXT_WITH_SCREENS
+
+    fake_llm.queue(GOOD_SPEC_FR)  # its Vue globale names the "Connexion" screen
+    body = client.post("/api/spec/generate", json={"spec_json": login_screen, "business_context": CONTEXT_WITH_SCREENS}).json()
+    assert len(fake_llm.calls) == 1 and body["warnings"] == []
+
+
+def test_no_context_usage_without_context(fake_llm, client, login_screen):
+    fake_llm.queue(GOOD_SPEC_FR)
+    client.post("/api/spec/generate", json={"spec_json": login_screen})
+    assert "<context_usage>" not in fake_llm.user_prompt()
+
+
 def test_spec_correction_pass(fake_llm, client, login_screen):
     bad = GOOD_SPEC_FR.replace("## Questions ouvertes\n", "").replace("| #2 | Button/Primary |", "| #2 | Bouton Annuler |")
     fake_llm.queue(bad, GOOD_SPEC_FR)

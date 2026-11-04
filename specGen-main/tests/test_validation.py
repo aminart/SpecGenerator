@@ -75,3 +75,32 @@ def test_context_checks(app_document):
         "Titre manquant : ## Navigation",
         "Le niveau de confiance doit valoir Élevé, Moyen, Faible (trouvé dans « Hypothèses » : Medium)",
     ]
+
+
+CONTEXT_WITH_SCREENS = """# Architecture & Navigation
+## Liste des écrans
+| Écran | Rôle | Accès depuis | Specs liées |
+|---|---|---|---|
+| Accueil | Point d’entrée | Connexion | Tableau de bord |
+| Connexion | Authentifier | Lancement de l’application | Formulaire de connexion |
+"""
+
+
+def test_screens_are_read_from_the_context():
+    from spec_validation import context_screen_names
+
+    assert context_screen_names(CONTEXT_WITH_SCREENS) == ["Accueil", "Connexion"]
+    assert context_screen_names("# Sans tableau") == []
+
+
+def test_ways_of_access_must_name_a_context_screen(good_spec_fr, login_screen):
+    names, texts = collect_json_names(login_screen), collect_json_texts(login_screen)
+    # The good spec names "Connexion" in its title only, not in Moyens d’accès / Vue globale.
+    issues = validate_spec(good_spec_fr, "fr", names, texts, ["Accueil", "Profil"])
+    assert issues["structure"] == [
+        "La section « Moyens d’accès » ne cite aucun écran de la Liste des écrans du contexte (Accueil, Profil) : "
+        "indiquer depuis quel écran et par quelle action on accède à la feature."
+    ]
+    cited = good_spec_fr.replace("Lancement de l’application (hypothèse).", "Depuis l’écran Accueil, menu Profil.")
+    assert validate_spec(cited, "fr", names, texts, ["Accueil", "Profil"])["structure"] == []
+    assert validate_spec(good_spec_fr, "fr", names, texts, [])["structure"] == []
