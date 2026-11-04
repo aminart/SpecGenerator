@@ -4,6 +4,7 @@ Extracted from the former Streamlit app so they can be served by the API.
 """
 from __future__ import annotations
 
+import base64
 import html
 import io
 import json
@@ -59,6 +60,35 @@ def extract_sections(markdown_text: str) -> list[dict[str, str]]:
         sections.append({"title": title, "body": body})
 
     return sections
+
+
+_MERMAID_BLOCK = re.compile(r"^```mermaid[ \t]*\n(.*?)\n```[ \t]*$", re.DOTALL | re.MULTILINE)
+
+
+def diagrams_by_code(diagrams: list[dict[str, str]] | None) -> dict[str, bytes]:
+    """Mermaid code -> PNG bytes, as drawn by the frontend."""
+    images: dict[str, bytes] = {}
+    for diagram in diagrams or []:
+        try:
+            images[diagram["code"].strip()] = base64.b64decode(diagram["png_base64"], validate=True)
+        except (KeyError, ValueError, TypeError):
+            continue
+    return images
+
+
+def embed_diagrams_in_markdown(markdown_text: str, diagrams: dict[str, bytes]) -> str:
+    """For the HTML export: each drawn Mermaid block becomes an inline image."""
+    if not diagrams:
+        return markdown_text
+
+    def replace(match: re.Match[str]) -> str:
+        image = diagrams.get(match.group(1).strip())
+        if image is None:
+            return match.group(0)
+        data = base64.b64encode(image).decode("ascii")
+        return f"<p class='doc-diagram'><img src='data:image/png;base64,{data}' alt='Diagramme' style='max-width:100%;height:auto;' /></p>"
+
+    return _MERMAID_BLOCK.sub(replace, markdown_text)
 
 
 def markdown_to_html(md_text: str) -> str:
@@ -666,13 +696,37 @@ def _add_markdown_table_to_docx(document: Document, table_lines: list[str]) -> N
             _apply_inline_markdown(paragraph, normalized_row[index])
 
 
-def _append_markdown_to_docx_document(document: Document, markdown_text: str) -> None:
+def _add_code_block_to_docx(document: Document, language: str, code_lines: list[str], diagrams: dict[str, bytes]) -> None:
+    image = diagrams.get("\n".join(code_lines).strip()) if language == "mermaid" else None
+    if image is not None:
+        paragraph = document.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.add_run().add_picture(io.BytesIO(image), width=Inches(6.0))
+        return
+    for code_line in code_lines:
+        run = document.add_paragraph().add_run(code_line)
+        run.font.name = "Consolas"
+        run.font.size = Pt(9)
+
+
+def _append_markdown_to_docx_document(document: Document, markdown_text: str, diagrams: dict[str, bytes] | None = None) -> None:
     lines = markdown_text.splitlines()
     index = 0
     current_section_heading = ""
     while index < len(lines):
         line = lines[index].rstrip()
         stripped = line.strip()
+
+        if stripped.startswith("```"):
+            language = stripped[3:].strip().lower()
+            code_lines: list[str] = []
+            index += 1
+            while index < len(lines) and not lines[index].strip().startswith("```"):
+                code_lines.append(lines[index].rstrip())
+                index += 1
+            index += 1  # closing fence
+            _add_code_block_to_docx(document, language, code_lines, diagrams or {})
+            continue
 
         if not stripped:
             document.add_paragraph("")
@@ -758,6 +812,7 @@ def build_docx_bytes(
     subtitle: str,
     language: str = "fr",
     feature_image_bytes: bytes | None = None,
+    diagrams: dict[str, bytes] | None = None,
 ) -> bytes:
     labels = get_ui_labels(language)
     document = Document()
@@ -792,7 +847,7 @@ def build_docx_bytes(
         image_paragraph.add_run().add_picture(image_stream, width=Inches(6.3))
         document.add_paragraph("")
 
-    _append_markdown_to_docx_document(document, markdown_text)
+    _append_markdown_to_docx_document(document, markdown_text, diagrams)
 
     output = io.BytesIO()
     document.save(output)
@@ -851,18 +906,18 @@ def _shift_headings_up(markdown_text: str) -> str:
     return "\n".join(lines)
 
 
-def _append_content(document: Document, markdown_text: str, image_bytes: bytes | None) -> None:
+def _append_content(document: Document, markdown_text: str, image_bytes: bytes | None, diagrams: dict[str, bytes] | None = None) -> None:
     """Writes the document; the optional image goes right under the first section heading."""
     if not image_bytes:
-        _append_markdown_to_docx_document(document, markdown_text)
+        _append_markdown_to_docx_document(document, markdown_text, diagrams)
         return
     match = re.search(r"^##?\s+.+$", markdown_text, flags=re.MULTILINE)
     split_at = match.end() if match else 0
-    _append_markdown_to_docx_document(document, markdown_text[:split_at])
+    _append_markdown_to_docx_document(document, markdown_text[:split_at], diagrams)
     image_paragraph = document.add_paragraph()
     image_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
     image_paragraph.add_run().add_picture(io.BytesIO(image_bytes), width=Inches(6.0))
-    _append_markdown_to_docx_document(document, markdown_text[split_at:])
+    _append_markdown_to_docx_document(document, markdown_text[split_at:], diagrams)
 
 
 def _request_fields_update(document: Document) -> None:
@@ -882,6 +937,7 @@ def render_docx_template(
     subtitle: str,
     language: str = "fr",
     image_bytes: bytes | None = None,
+    diagrams: dict[str, bytes] | None = None,
 ) -> bytes:
     """Fills a Word template.
 
@@ -921,7 +977,7 @@ def render_docx_template(
         return [element for element in body.iterchildren() if not element.tag.endswith("sectPr")]
 
     count_before = len(content_elements())
-    _append_content(document, content, image_bytes)
+    _append_content(document, content, image_bytes, diagrams)
 
     if anchor is not None:
         # python-docx appends before the final sectPr: the new elements are the last ones.
@@ -941,12 +997,16 @@ def build_docx_from_template(
     subtitle: str,
     language: str = "fr",
     feature_image_bytes: bytes | None = None,
+    diagrams: dict[str, bytes] | None = None,
 ) -> bytes:
     template_path = _template_path(SPEC_DOCX_TEMPLATES.get(language, SPEC_DOCX_TEMPLATES["fr"]))
     try:
-        return render_docx_template(template_path, markdown_text, title, subtitle, language, feature_image_bytes)
+        return render_docx_template(template_path, markdown_text, title, subtitle, language, feature_image_bytes, diagrams)
     except Exception:
-        return build_docx_bytes(markdown_text=markdown_text, title=title, subtitle=subtitle, language=language, feature_image_bytes=feature_image_bytes)
+        return build_docx_bytes(
+            markdown_text=markdown_text, title=title, subtitle=subtitle, language=language,
+            feature_image_bytes=feature_image_bytes, diagrams=diagrams,
+        )
 
 
 def build_context_docx_from_template(
@@ -954,12 +1014,13 @@ def build_context_docx_from_template(
     title: str,
     subtitle: str,
     language: str = "fr",
+    diagrams: dict[str, bytes] | None = None,
 ) -> bytes:
     template_path = _template_path(CONTEXT_DOCX_TEMPLATES.get(language, CONTEXT_DOCX_TEMPLATES["fr"]))
     try:
-        return render_docx_template(template_path, markdown_text, title, subtitle, language)
+        return render_docx_template(template_path, markdown_text, title, subtitle, language, diagrams=diagrams)
     except Exception:
-        return build_docx_bytes(markdown_text=markdown_text, title=title, subtitle=subtitle, language=language)
+        return build_docx_bytes(markdown_text=markdown_text, title=title, subtitle=subtitle, language=language, diagrams=diagrams)
 
 
 def is_timeout_error(exc: Exception) -> bool:

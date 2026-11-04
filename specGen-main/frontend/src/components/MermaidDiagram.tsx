@@ -4,7 +4,15 @@ import { useEffect, useId, useState } from "react";
 let mermaidLoader: Promise<typeof import("mermaid").default> | null = null;
 function loadMermaid() {
   mermaidLoader ??= import("mermaid").then(({ default: mermaid }) => {
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral", fontFamily: "Inter, sans-serif" });
+    // SVG text labels (no HTML labels): the diagrams can then be turned into images for the exports.
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "neutral",
+      fontFamily: "Inter, sans-serif",
+      htmlLabels: false,
+      flowchart: { htmlLabels: false },
+    });
     return mermaid;
   });
   return mermaidLoader;
@@ -19,6 +27,49 @@ export async function mermaidError(code: string): Promise<string | null> {
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
   }
+}
+
+let exportCount = 0;
+
+/** A Mermaid diagram as a PNG (base64, no data: prefix), drawn at twice its size for print. */
+export async function mermaidToPng(code: string): Promise<string> {
+  const mermaid = await loadMermaid();
+  const { svg } = await mermaid.render(`mermaid-export-${exportCount++}`, code);
+  const parsed = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
+  const [, , width, height] = (parsed.getAttribute("viewBox") ?? "0 0 800 600").split(/[\s,]+/).map(Number);
+  parsed.setAttribute("width", String(width));
+  parsed.setAttribute("height", String(height));
+  parsed.removeAttribute("style");
+  const source = new XMLSerializer().serializeToString(parsed);
+
+  const image = new Image();
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source)}`;
+  await image.decode();
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(width * scale);
+  canvas.height = Math.ceil(height * scale);
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas indisponible");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/png").split(",")[1];
+}
+
+/** The ```mermaid blocks of a document drawn as images, for the Word and HTML exports. */
+export async function renderDiagramsForExport(markdown: string): Promise<{ code: string; png_base64: string }[]> {
+  const diagrams: { code: string; png_base64: string }[] = [];
+  for (const match of markdown.matchAll(/^```mermaid[ \t]*\n([\s\S]*?)\n```[ \t]*$/gm)) {
+    const code = match[1].trim();
+    if (!code || diagrams.some((diagram) => diagram.code === code)) continue;
+    try {
+      diagrams.push({ code, png_base64: await mermaidToPng(code) });
+    } catch {
+      // An invalid diagram stays as code in the export.
+    }
+  }
+  return diagrams;
 }
 
 export function MermaidDiagram({ code }: { code: string }) {

@@ -4,6 +4,7 @@ import { downloadExport } from "../lib/api";
 import { formatDateTime, LANGUAGE_LABELS } from "../lib/files";
 import type { DocKind, FeatureImage, Language } from "../lib/types";
 import { useToast } from "./Toasts";
+import { renderDiagramsForExport } from "./MermaidDiagram";
 
 export interface ResultTab {
   id: string;
@@ -106,7 +107,9 @@ export function ExportButtons({
   const handleExport = async (format: "docx" | "md" | "html") => {
     setBusy(format);
     try {
-      await downloadExport(kind, format, { markdown, language, image_base64: image?.base64, image_mime: image?.mime });
+      // Word and HTML get the Mermaid diagrams as images; the Markdown export keeps their code.
+      const diagrams = format === "md" ? [] : await renderDiagramsForExport(markdown);
+      await downloadExport(kind, format, { markdown, language, image_base64: image?.base64, image_mime: image?.mime, diagrams });
     } catch (error) {
       toast("error", (error as Error).message);
     } finally {
