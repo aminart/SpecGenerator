@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { ArrowRight, Download, FileText, Layers, Wand2 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { api, downloadText } from "../lib/api";
+import { ArrowRight, FileText, Layers } from "lucide-react";
+import { api } from "../lib/api";
+import { hasMermaidBlock, insertFlowDiagram } from "../lib/flow";
 import { documentTitle, formatSize, readJsonFile, readTextFile } from "../lib/files";
 import type { ContextResult, Language, LoadedFile } from "../lib/types";
 import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { DocumentView, EditToggle } from "./DocumentEditor";
-import { MermaidDiagram, mermaidError } from "./MermaidDiagram";
+import { mermaidError } from "./MermaidDiagram";
 import { documentMeta, editedResult, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
@@ -18,7 +17,6 @@ export interface ContextState {
   jsonFiles: LoadedFile[];
   language: Language;
   result: ContextResult | null;
-  flowMermaid: string;
 }
 
 export function ContextPage({
@@ -38,8 +36,6 @@ export function ContextPage({
 }) {
   const toast = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isGeneratingFlow, setIsGeneratingFlow] = useState(false);
-  const [activeTab, setActiveTab] = useState("preview");
   const [editing, setEditing] = useState(false);
   const result = state.result;
   const hasSource = state.markdownFiles.length > 0 || state.jsonFiles.length > 0;
@@ -65,8 +61,8 @@ export function ContextPage({
         component_library: componentLibrary?.content ?? null,
         language: state.language,
       });
-      update({ result: { ...generated, generatedAt: new Date().toISOString() }, flowMermaid: "" });
-      setActiveTab("preview");
+      const markdown = await withFlowDiagram(generated.markdown);
+      update({ result: { ...generated, markdown, generatedAt: new Date().toISOString() } });
       setEditing(false);
       toast(
         generated.retried_light || generated.warnings?.length ? "info" : "success",
@@ -83,22 +79,22 @@ export function ContextPage({
     }
   };
 
-  const handleGenerateFlow = async () => {
-    if (!result) return;
-    setIsGeneratingFlow(true);
+  /** The user flow diagram goes into the document itself, so that the preview and the exports show it. */
+  const withFlowDiagram = async (markdown: string): Promise<string> => {
+    if (hasMermaidBlock(markdown)) return markdown;
     try {
-      let { mermaid } = await api.generateMermaid(result.markdown, state.language);
+      let { mermaid } = await api.generateMermaid(markdown, state.language);
       const error = await mermaidError(mermaid);
       if (error) {
         // One correction round with the parser's message; keep the first version if it is no better.
-        const fixed = await api.generateMermaid(result.markdown, state.language, { previous_code: mermaid, error });
+        const fixed = await api.generateMermaid(markdown, state.language, { previous_code: mermaid, error });
         if (!(await mermaidError(fixed.mermaid))) mermaid = fixed.mermaid;
+        else return markdown;
       }
-      update({ flowMermaid: mermaid });
-    } catch (error) {
-      toast("error", (error as Error).message);
-    } finally {
-      setIsGeneratingFlow(false);
+      return insertFlowDiagram(markdown, mermaid, state.language);
+    } catch {
+      toast("info", "Le schéma du parcours n’a pas pu être généré : le document est livré sans.");
+      return markdown;
     }
   };
 
@@ -161,7 +157,7 @@ export function ContextPage({
       {isGenerating ? (
         <ProgressPanel
           title="Génération du document de contexte"
-          steps={["Lecture et agrégation des sources", "Analyse de la structure et des parcours", "Rédaction par l’IA", "Mise en forme du document"]}
+          steps={["Lecture et agrégation des sources", "Analyse de la structure et des parcours", "Rédaction par l’IA", "Schéma du parcours utilisateur", "Mise en forme du document"]}
           note="En cas de délai dépassé, une nouvelle tentative en mode allégé est lancée automatiquement."
         />
       ) : result ? (
@@ -174,80 +170,20 @@ export function ContextPage({
               Utiliser pour la spécification <ArrowRight className="h-4 w-4" aria-hidden />
             </button>
           }
-          tabs={[
-            { id: "preview", label: "Aperçu" },
-            { id: "journeys", label: "Parcours utilisateur" },
-          ]}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
           actions={
             <>
-              {activeTab === "preview" && <EditToggle editing={editing} onToggle={() => setEditing(!editing)} />}
+              <EditToggle editing={editing} onToggle={() => setEditing(!editing)} />
               <ExportButtons kind="context" markdown={result.markdown} language={state.language} />
             </>
           }
         >
-          {activeTab === "preview" && (
-            <>
-              <WarningsPanel warnings={result.warnings} />
-              <DocumentView
-                markdown={result.markdown}
-                originalMarkdown={result.originalMarkdown}
-                editing={editing}
-                onChange={(markdown) => update({ result: editedResult(result, markdown) })}
-              />
-            </>
-          )}
-          {activeTab === "journeys" && (
-            <div className="flex flex-col gap-10">
-              <section>
-                <div className="mb-4 flex flex-wrap items-center gap-3">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-ink">Schéma du parcours</h3>
-                    <p className="text-sm text-ink-muted">Diagramme généré par l’IA à partir du document de contexte.</p>
-                  </div>
-                  {state.flowMermaid && (
-                    <button type="button" className="btn-secondary" onClick={() => downloadText(state.flowMermaid, "parcours.mmd")}>
-                      <Download className="h-4 w-4" aria-hidden /> .mmd
-                    </button>
-                  )}
-                  <button type="button" className="btn-primary" onClick={handleGenerateFlow} disabled={!llmReady || isGeneratingFlow}>
-                    <Wand2 className="h-4 w-4" aria-hidden />
-                    {isGeneratingFlow ? "Génération…" : state.flowMermaid ? "Régénérer le schéma" : "Générer le schéma"}
-                  </button>
-                </div>
-                {state.flowMermaid ? (
-                  <>
-                    <MermaidDiagram code={state.flowMermaid} />
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-sm font-medium text-ink-muted hover:text-ink">Modifier le code Mermaid</summary>
-                      <textarea
-                        value={state.flowMermaid}
-                        onChange={(event) => update({ flowMermaid: event.target.value })}
-                        spellCheck={false}
-                        aria-label="Code Mermaid du parcours"
-                        className="input-area mt-2 h-56 font-mono text-[13px]"
-                      />
-                    </details>
-                  </>
-                ) : (
-                  <p className="rounded-lg border border-dashed border-line-dashed p-6 text-center text-sm text-ink-subtle">Aucun schéma pour le moment.</p>
-                )}
-              </section>
-              {result.journey_mermaid && (
-                <section>
-                  <h3 className="text-lg font-bold text-ink">Parcours détectés dans les JSON</h3>
-                  <p className="mb-4 text-sm text-ink-muted">Analyse automatique des écrans, sans IA.</p>
-                  <MermaidDiagram code={result.journey_mermaid} />
-                  {result.journey_markdown && (
-                    <div className="prose prose-sm prose-slate mt-4 max-w-none prose-h1:text-lg prose-h2:text-base">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.journey_markdown}</ReactMarkdown>
-                    </div>
-                  )}
-                </section>
-              )}
-            </div>
-          )}
+          <WarningsPanel warnings={result.warnings} />
+          <DocumentView
+            markdown={result.markdown}
+            originalMarkdown={result.originalMarkdown}
+            editing={editing}
+            onChange={(markdown) => update({ result: editedResult(result, markdown) })}
+          />
         </ResultCard>
       ) : (
         <EmptyPanel icon={<Layers className="h-[30px] w-[30px]" strokeWidth={1.6} />} title="Aucun document de contexte">

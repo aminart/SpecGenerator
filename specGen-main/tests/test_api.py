@@ -100,6 +100,9 @@ def test_context_prompt_and_correction(fake_llm, client, app_document):
     prompt = fake_llm.user_prompt()
     assert prompt.count("CONTEXTE_UNIQUE") == 1 and prompt.count("NOTE_DESIGNER") == 1
     assert "<application_json>" in prompt and "ON_CLICK: NAVIGATE → Home" in prompt
+    # The flows detected without AI are a source of the document, not a separate tab any more.
+    journeys = response.json()["journey_markdown"].strip()
+    assert journeys and "<detected_journeys>" in prompt and journeys.splitlines()[-1] in prompt
     assert len(fake_llm.calls) == 2  # incomplete document: one correction pass
     assert any(warning.startswith("Titre manquant") for warning in response.json()["warnings"])
 

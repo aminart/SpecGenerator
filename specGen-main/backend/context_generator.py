@@ -176,7 +176,7 @@ def build_context_system_prompt(language: str) -> str:
             "1. L’intention produit, les personas, les besoins utilisateurs et les règles métier ne sont des faits "
             "que s’ils figurent dans <project_documents>.\n"
             "2. Les écrans, zones, composants, la navigation et les interactions ne sont des faits que s’ils "
-            "figurent dans <application_json> ou <json_analysis>.\n"
+            "figurent dans <application_json>, <json_analysis> ou <detected_journeys>.\n"
             "3. <component_library> sert seulement à préciser le vocabulaire ; elle ne prouve jamais qu’un "
             "composant est utilisé.\n"
             "4. Tout le reste, même plausible, va dans les tableaux Hypothèses ou Questions ouvertes. Un document "
@@ -193,7 +193,7 @@ def build_context_system_prompt(language: str) -> str:
         "1. Product intent, personas, user needs and business rules are facts only when they appear in "
         "<project_documents>.\n"
         "2. Screens, zones, components, navigation and interactions are facts only when they appear in "
-        "<application_json> or <json_analysis>.\n"
+        "<application_json>, <json_analysis> or <detected_journeys>.\n"
         "3. <component_library> only refines terminology; it never proves that a component is used.\n"
         "4. Anything else, even plausible, goes in the hypotheses or open questions tables. A reliable document "
         "is better than a speculative one.\n\n"
@@ -216,6 +216,7 @@ TEXTS = {
 - Business glossary: the domain terms of the documents with their definition and the document they come from; a term defined nowhere goes in the open questions.
 - Do not quote technical paths ($.children[0]…) or ids.""",
         "no_documents": "No project documents provided.",
+        "journeys_note": "User flows detected automatically from the prototype interactions of the JSON (no AI): build the User flow section and the navigation on them, completed by the documents.",
         "json_note": "Application JSON pruned for the prompt (no geometry, styles or ids).",
         "json_reduced": " Long lists and deep levels were cut (`children_omitted`).",
         "truncated": "[Truncated: the end of the documents was cut to fit the prompt]",
@@ -233,6 +234,7 @@ TEXTS = {
 - Glossaire métier : les termes du domaine présents dans les documents, avec leur définition et le document d’où ils viennent ; un terme défini nulle part va dans les questions ouvertes.
 - Ne citer ni chemins techniques ($.children[0]…) ni identifiants.""",
         "no_documents": "Aucun document projet fourni.",
+        "journeys_note": "Parcours détectés automatiquement à partir des interactions de prototype du JSON (sans IA) : s’en servir comme base de la section Parcours utilisateur et de la navigation, complétée par les documents.",
         "json_note": "JSON de l’application allégé pour le prompt (sans géométrie, styles ni ids).",
         "json_reduced": " Les longues listes et les niveaux profonds ont été coupés (`children_omitted`).",
         "truncated": "[Tronqué : la fin des documents a été coupée pour tenir dans le prompt]",
@@ -251,6 +253,7 @@ def _build_messages(
     analysis: dict[str, Any],
     priority_context_documents: str | None,
     component_library_summary: str | None,
+    detected_journeys: str | None = None,
 ) -> tuple[list[dict[str, str]], str]:
     profile = CONTEXT_PROMPT_PROFILES.get(context_mode, CONTEXT_PROMPT_PROFILES["standard"])
     lang = "fr" if language == "fr" else "en"
@@ -291,6 +294,8 @@ def _build_messages(
             ),
         )
     )
+    if detected_journeys and detected_journeys.strip():
+        sections.append(_tagged("detected_journeys", f"{TEXTS[lang]['journeys_note']}\n{_truncate_text(detected_journeys, 8000, lang)}"))
     if profile["include_component_library"] and component_library_summary and component_library_summary.strip():
         sections.append(_tagged("component_library", _truncate_text(component_library_summary, 4000)))
 
@@ -321,6 +326,7 @@ def generate_context_markdown(
     context_mode: str = "standard",
     component_library_summary: str | None = None,
     priority_context_documents: str | None = None,
+    detected_journeys: str | None = None,
 ) -> dict[str, Any]:
     """Returns {"markdown", "warnings", "corrected"}."""
     client = get_openai_client()
@@ -333,6 +339,7 @@ def generate_context_markdown(
         analysis=analysis,
         priority_context_documents=priority_context_documents,
         component_library_summary=component_library_summary,
+        detected_journeys=detected_journeys,
     )
 
     markdown = unwrap_markdown_fence(complete(client, messages))

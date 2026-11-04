@@ -200,6 +200,7 @@ def generate_context(request: ContextRequest) -> dict[str, Any]:
         analysis=analysis,
         component_library_summary=_component_library_summary(request.component_library),
         priority_context_documents="\n\n---\n\n".join(priority_parts),
+        detected_journeys=journey_result["journey_markdown"],
     )
 
     retried_light = False

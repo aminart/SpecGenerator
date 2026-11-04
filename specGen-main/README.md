@@ -3,7 +3,7 @@
 Générateur de documents UX à destination des développeurs :
 
 0. **Convertir en Markdown** (optionnel) — convertit des documents existants (DOCX, PDF, PPTX, XLSX, HTML, TXT) en Markdown réutilisable comme source de contexte. Les schémas **draw.io** (`.drawio`, `.xml`, ou PNG / SVG exportés avec le schéma inclus) sont convertis sans IA : un diagramme Mermaid par page, la liste des relations dans le sens exact des flèches, les regroupements (swimlanes), et une alerte pour chaque flèche non accrochée à deux formes, dont le sens ne peut pas être garanti.
-1. **Contexte projet** — à partir de documents Markdown et des JSON de l'application, génère un document d'architecture UX (parcours, macro layout, navigation…) et un schéma de parcours Mermaid.
+1. **Contexte projet** — à partir de documents Markdown et des JSON de l'application, génère un document d'architecture UX (parcours, macro layout, navigation…). Les parcours détectés sans IA dans les interactions du prototype servent de source au modèle, et le schéma Mermaid du parcours est placé dans la section « Parcours utilisateur » du document.
 2. **Spécification** — à partir du contexte, du JSON d'un écran ou composant et d'une capture optionnelle, génère une spec UX / HMI détaillée (variantes, états, comportements, erreurs), exportable en Word, HTML ou Markdown.
 
 Le contexte et la spécification se modifient directement dans l'aperçu (bouton **Modifier**) : texte saisi dans la page, tableaux cellule par cellule (ajout et suppression de lignes et de colonnes), code des diagrammes Mermaid. Les exports utilisent la version modifiée, et la spécification utilise le contexte modifié. La version générée reste disponible tant que le document n'est pas régénéré.
