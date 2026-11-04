@@ -104,3 +104,17 @@ def test_ways_of_access_must_name_a_context_screen(good_spec_fr, login_screen):
     cited = good_spec_fr.replace("Lancement de l’application (hypothèse).", "Depuis l’écran Accueil, menu Profil.")
     assert validate_spec(cited, "fr", names, texts, ["Accueil", "Profil"])["structure"] == []
     assert validate_spec(good_spec_fr, "fr", names, texts, [])["structure"] == []
+
+
+def test_generic_layer_names_need_a_description():
+    from conftest import GOOD_SPEC_FR
+
+    names = {"frame 01010", "input email", "input password", "button/primary", "error message"}
+    described = GOOD_SPEC_FR.replace("| #2 | Button/Primary |", "| #2 | Bouton « Valider » (Frame 01010) |")
+    issues = validate_spec(described, "fr", names)
+    assert issues["unknown_components"] == [] and not any("générique" in issue for issue in issues["structure"])
+
+    alone = GOOD_SPEC_FR.replace("| #2 | Button/Primary |", "| #2 | Frame 01010 |")
+    issues = validate_spec(alone, "fr", names)
+    assert issues["unknown_components"] == []
+    assert any("générique écrit seul" in issue and "« Frame 01010 »" in issue for issue in issues["structure"])

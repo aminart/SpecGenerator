@@ -11,7 +11,7 @@ import re
 import unicodedata
 from typing import Any
 
-from json_analysis import NON_STRUCTURAL_KEYS
+from json_analysis import NON_STRUCTURAL_KEYS, is_generic_layer_name
 
 CONFIDENCE_LEVELS = {"fr": ("Élevé", "Moyen", "Faible"), "en": ("High", "Medium", "Low")}
 
@@ -177,6 +177,14 @@ _FIGMA_COLUMNS = {"fr": "Composant Figma", "en": "Figma component"}
 _TEXTS_TABLE = {"fr": ("Messages et textes conditionnels", "Texte"), "en": ("Conditional messages and texts", "Text")}
 
 
+def _names_a_layer(part: str, json_names: set[str]) -> bool:
+    """A layer name, or a description followed by the layer name: Bouton « Valider » (Frame 01010)."""
+    if normalize_name(part) in json_names:
+        return True
+    match = re.search(r"\(([^()]+)\)\s*$", part)
+    return bool(match) and normalize_name(match.group(1)) in json_names
+
+
 def unknown_component_names(markdown: str, language: str, json_names: set[str]) -> list[str]:
     """Names in the Figma component columns that match no `name` of the JSON."""
     if not json_names:
@@ -191,7 +199,7 @@ def unknown_component_names(markdown: str, language: str, json_names: set[str]) 
                 continue
             # A row may group repeated elements: "Input email, Input password".
             parts = [part for part in re.split(r"\s*(?:,|;|<br\s*/?>|\s\+\s)\s*", cell) if normalize_name(part) not in _EMPTY_CELL]
-            if (not parts or any(normalize_name(part) not in json_names for part in parts)) and cell not in unknown:
+            if (not parts or any(not _names_a_layer(part, json_names) for part in parts)) and cell not in unknown:
                 unknown.append(cell)
     return unknown
 
@@ -269,6 +277,32 @@ def check_access_uses_context(markdown: str, language: str, screens: list[str]) 
     ]
 
 
+def generic_component_names(markdown: str, language: str) -> list[str]:
+    """Generic Figma names (Frame 01010, Group 12…) written alone in a Figma component column."""
+    lang = "fr" if language == "fr" else "en"
+    found: list[str] = []
+    for title, columns in EXPECTED_TABLES[lang].items():
+        if _FIGMA_COLUMNS[lang] not in columns:
+            continue
+        for cell in _table_column(markdown, title, _FIGMA_COLUMNS[lang]):
+            for part in re.split(r"\s*(?:,|;|<br\s*/?>|\s\+\s)\s*", cell):
+                name = part.strip().strip("`*")
+                if name and normalize_name(name) not in _EMPTY_CELL and is_generic_layer_name(name) and name not in found:
+                    found.append(name)
+    if not found:
+        return []
+    names = ", ".join(f"« {name} »" for name in found)
+    if lang == "fr":
+        return [
+            f"Nom de calque générique écrit seul dans la colonne Composant Figma : {names}. Écrire ce qu’est l’élément "
+            "puis ce nom entre parenthèses, par exemple Bouton « Valider » (Frame 01010)."
+        ]
+    return [
+        f"Generic layer name written alone in the Figma component column: {names}. Write what the element is, "
+        "then that name in parentheses, e.g. \"Validate\" button (Frame 01010)."
+    ]
+
+
 def validate_spec(
     markdown: str,
     language: str,
@@ -277,7 +311,9 @@ def validate_spec(
     context_screens: list[str] | None = None,
 ) -> dict[str, list[str]]:
     return {
-        "structure": check_structure(markdown, language) + check_access_uses_context(markdown, language, context_screens or []),
+        "structure": check_structure(markdown, language)
+        + check_access_uses_context(markdown, language, context_screens or [])
+        + generic_component_names(markdown, language),
         "unknown_components": unknown_component_names(markdown, language, json_names),
         "unknown_texts": unknown_texts(markdown, language, json_texts or set()),
     }

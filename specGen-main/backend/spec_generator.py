@@ -12,6 +12,8 @@ from json_analysis import (
     extract_component_properties,
     extract_interactions,
     extract_property_definitions,
+    is_generic_layer_name,
+    readable_layer_name,
     format_analysis_for_prompt,
     format_analysis_for_prompt_compact,
     to_text,
@@ -254,6 +256,10 @@ def _prune_node(
     properties = extract_component_properties(value)
     if properties:
         pruned["properties"] = properties
+    if is_generic_layer_name(to_text(value.get("name"))) and ("type" in value or "children" in value):
+        readable = readable_layer_name(value, node_names)
+        if readable:
+            pruned["readable_name"] = readable
     return pruned
 
 
@@ -404,6 +410,7 @@ TEXTS = {
         "writing_rules": [
             "- Organize the document by feature and UI zone, not as a raw list of fields; do not paraphrase the JSON mechanically.",
             "- Figma component column: the exact layer or component `name` from the JSON (e.g. Button/Primary, Input email). Never a JSON path, never the words JSON or analysis. A row supported only by the project context gets a dash (-).",
+            "- When that `name` is a generic Figma name (Frame 01010, Group 12, Rectangle 3…), first write what the element is, using `readable_name` (main component or first text), then the `name` in parentheses: \"Validate\" button (Frame 01010). Never write the generic name alone.",
             "- Use the Figma signals: `properties` and `variantOptions` feed the variants table and the states; layers with `visible: false` are usually alternative states or error messages; `interactions` give the behaviors and the ways of access.",
             "- Each row of the feature details table gets a confidence level; {low} rows must match an item in the assumptions section.",
             "- When the JSON was shortened (`children_omitted`, compact summary), do not describe the omitted parts beyond what the analysis states.",
@@ -437,6 +444,7 @@ TEXTS = {
         "writing_rules": [
             "- Organiser le document par feature et par zone d’interface, pas comme une liste brute de champs ; ne pas paraphraser le JSON.",
             "- Colonne Composant Figma : le `name` exact du calque ou du composant dans le JSON (ex. Button/Primary, Input email). Jamais un chemin JSON, jamais les mots JSON ou analyse. Une ligne appuyée seulement par le contexte projet reçoit un tiret (-).",
+            "- Quand ce `name` est un nom générique de Figma (Frame 01010, Group 12, Rectangle 3…), écrire d’abord ce qu’est l’élément, en s’aidant de `readable_name` (composant principal ou premier texte), puis le `name` entre parenthèses : Bouton « Valider » (Frame 01010). Ne jamais écrire le nom générique seul.",
             "- Exploiter les signaux Figma : `properties` et `variantOptions` alimentent le tableau des variantes et les états ; les calques `visible: false` sont en général des états alternatifs ou des messages d’erreur ; `interactions` donne les comportements et les moyens d’accès.",
             "- Chaque ligne du tableau Détail de la feature reçoit un niveau de confiance ; chaque ligne {low} correspond à une entrée de la section Hypothèses.",
             "- Quand le JSON a été raccourci (`children_omitted`, résumé compact), ne pas décrire les parties omises au-delà de ce que dit l’analyse.",
