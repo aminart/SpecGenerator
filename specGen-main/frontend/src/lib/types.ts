@@ -85,6 +85,9 @@ export interface ContextResult {
   corrected?: boolean;
   timings: { analysis: number; llm: number; total: number };
   generatedAt?: string;
+  /** The document as generated, kept once the user edits it so they can go back. */
+  originalMarkdown?: string;
+  editedAt?: string;
 }
 
 export interface SpecResult {
@@ -96,4 +99,7 @@ export interface SpecResult {
   scope: ComponentScope;
   timings: { total: number };
   generatedAt?: string;
+  /** The document as generated, kept once the user edits it so they can go back. */
+  originalMarkdown?: string;
+  editedAt?: string;
 }

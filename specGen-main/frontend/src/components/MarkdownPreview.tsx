@@ -5,11 +5,11 @@ import { MermaidDiagram } from "./MermaidDiagram";
 import { unwrapMarkdownFence } from "../lib/files";
 import type { FeatureImage } from "../lib/types";
 
-const PROSE =
+export const PROSE =
   "doc-prose prose prose-slate max-w-none [&>:first-child]:mt-0 text-[15px] text-ink-body prose-headings:text-ink prose-h1:text-2xl prose-h2:mt-8 prose-h2:border-b prose-h2:border-line prose-h2:pb-2 prose-h2:text-[22px] prose-h3:text-lg prose-table:text-sm prose-th:bg-ink prose-th:px-3 prose-th:py-2.5 prose-th:font-medium prose-th:text-white prose-td:border prose-td:border-line prose-td:px-3 prose-td:py-2.5 prose-blockquote:rounded-lg prose-blockquote:border-0 prose-blockquote:bg-[#FFF7E6] prose-blockquote:px-4 prose-blockquote:py-1 prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:text-[#7A4B00] prose-code:rounded prose-code:bg-[#F2F3F8] prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-ink [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[13px] [&_pre_code]:text-white";
 
 /** ```mermaid blocks (draw.io conversions, user flows) are drawn instead of shown as code. */
-const COMPONENTS: Components = {
+export const COMPONENTS: Components = {
   pre({ children }) {
     const code = Array.isArray(children) ? children[0] : children;
     if (isValidElement<{ className?: string; children?: ReactNode }>(code) && code.props.className?.includes("language-mermaid")) {

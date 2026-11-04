@@ -6,6 +6,8 @@ Générateur de documents UX à destination des développeurs :
 1. **Contexte projet** — à partir de documents Markdown et des JSON de l'application, génère un document d'architecture UX (parcours, macro layout, navigation…) et un schéma de parcours Mermaid.
 2. **Spécification** — à partir du contexte, du JSON d'un écran ou composant et d'une capture optionnelle, génère une spec UX / HMI détaillée (variantes, états, comportements, erreurs), exportable en Word, HTML ou Markdown.
 
+Le contexte et la spécification se modifient directement dans l'aperçu (bouton **Modifier**) : texte saisi dans la page, tableaux cellule par cellule (ajout et suppression de lignes et de colonnes), code des diagrammes Mermaid. Les exports utilisent la version modifiée, et la spécification utilise le contexte modifié. La version générée reste disponible tant que le document n'est pas régénéré.
+
 ## Architecture
 
 ```
