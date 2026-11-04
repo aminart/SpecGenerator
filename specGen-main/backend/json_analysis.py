@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -317,6 +318,46 @@ def extract_property_definitions(obj: dict[str, Any]) -> dict[str, list[str]]:
     return definitions
 
 
+# Names Figma gives to layers that were never renamed: "Frame 01010", "Group 12", "Rectangle"...
+GENERIC_LAYER_NAME = re.compile(
+    r"^(frame|group|groupe|rectangle|ellipse|vector|vecteur|line|ligne|polygon|polygone|star|étoile|union|subtract|"
+    r"intersect|exclude|instance|component|composant|text|texte|image|section|slice|cadre|auto ?layout)?"
+    r"[\s_-]*\d*$",
+    re.IGNORECASE,
+)
+
+
+def is_generic_layer_name(name: str | None) -> bool:
+    return bool(name) and bool(GENERIC_LAYER_NAME.match(name.strip()))
+
+
+def _first_text(node: Any, depth: int = 0) -> str | None:
+    if not isinstance(node, dict) or depth > 4:
+        return None
+    text = to_text(node.get("characters"))
+    if text and node.get("visible") is not False:
+        return text
+    for child in node.get("children") or []:
+        found = _first_text(child, depth + 1)
+        if found:
+            return found
+    return None
+
+
+def readable_layer_name(node: dict[str, Any], node_names: dict[str, str]) -> str | None:
+    """A meaningful name for a layer whose Figma name is generic: its main component, else its first text."""
+    main = node.get("mainComponent")
+    component = to_text(main.get("name")) if isinstance(main, dict) else None
+    component = component or node_names.get(to_text(node.get("componentId")) or "")
+    if component and not is_generic_layer_name(component):
+        return component
+    text = _first_text(node)
+    if text:
+        text = " ".join(text.split())
+        return f"« {text[:40]}{'…' if len(text) > 40 else ''} »"
+    return None
+
+
 def collect_node_names(data: Any) -> dict[str, str]:
     names: dict[str, str] = {}
 
@@ -329,6 +370,14 @@ def collect_node_names(data: Any) -> dict[str, str]:
             name = to_text(value.get("name"))
             if identifier and name:
                 names.setdefault(identifier, name)
+            # REST exports list the components used by instances in a top-level map id -> {name}.
+            for key in ("components", "componentSets"):
+                catalog = value.get(key)
+                if isinstance(catalog, dict):
+                    for component_id, component in catalog.items():
+                        component_name = to_text(component.get("name")) if isinstance(component, dict) else None
+                        if component_name:
+                            names.setdefault(component_id, component_name)
             for key, item in value.items():
                 if key not in NON_STRUCTURAL_KEYS and isinstance(item, (dict, list)):
                     collect(item)

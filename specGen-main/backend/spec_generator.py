@@ -12,6 +12,8 @@ from json_analysis import (
     extract_component_properties,
     extract_interactions,
     extract_property_definitions,
+    is_generic_layer_name,
+    readable_layer_name,
     format_analysis_for_prompt,
     format_analysis_for_prompt_compact,
     to_text,
@@ -51,11 +53,13 @@ Si aucune variante fiable n’est identifiable, conserver quand même cette sect
 Utiliser un tableau Markdown avec exactement ces colonnes :
 | ID | Composant Figma | Type de composant | État par défaut | Comportement | Niveau de confiance |
 |---|---|---|---|---|---|
+Une ligne par élément que le développeur doit implémenter : composant interactif, conteneur qui porte une logique (liste, formulaire, onglets) ou élément dont l’affichage change selon un état. Les éléments qui n’ont pas de comportement propre (unité ou suffixe comme « h », « € » ou « % », icône décorative, séparateur, libellé statique d’un champ, texte d’aide) ne reçoivent pas de ligne : les mentionner dans la ligne du composant auquel ils appartiennent (ex. « Champ durée, suffixe « h » »).
 
-## Textes de l’interface
-Lister tous les textes visibles du JSON (libellés, titres, placeholders, boutons, messages, y compris ceux des calques masqués), recopiés mot pour mot, dans un tableau Markdown avec exactement ces colonnes :
-| Composant Figma | Texte | Usage |
-|---|---|---|
+## Messages et textes conditionnels
+Lister, recopiés mot pour mot, uniquement les textes qui ne sont pas affichés en permanence : messages d’erreur, de confirmation, d’état vide ou de chargement, info-bulles, textes des calques masqués (`visible: false`) et textes qui changent selon un état ou une variante. Ne pas lister les textes toujours visibles (titres, libellés, boutons, placeholders) : ils se lisent sur la maquette. Tableau Markdown avec exactement ces colonnes :
+| Composant Figma | Texte | Type de texte | Condition d’affichage |
+|---|---|---|---|
+Type de texte : message d’erreur, message de confirmation, état vide, chargement, info-bulle, libellé d’un autre état… Condition d’affichage : l’état ou l’événement qui affiche le texte (ex. « Après validation avec un email invalide »). S’il n’y a aucun texte conditionnel, garder la section avec une seule ligne : | - | - | - | Aucun texte conditionnel identifié |
 
 ## Données affichées
 Lister les données variables affichées (valeurs saisies, contenus dynamiques, compteurs, dates, listes) dans un tableau Markdown avec exactement ces colonnes :
@@ -110,11 +114,13 @@ If no reliable variant can be identified, still keep this section and add a sing
 Use a Markdown table with exactly these columns:
 | ID | Figma component | Component type | Default state | Behavior | Confidence level |
 |---|---|---|---|---|---|
+One row per element the developer has to implement: interactive component, container carrying logic (list, form, tabs) or element whose display depends on a state. Elements with no behavior of their own (unit or suffix such as "h", "€" or "%", decorative icon, separator, static field label, helper text) get no row: mention them in the row of the component they belong to (e.g. "Duration field, suffix "h"").
 
-## Interface texts
-List every visible text of the JSON (labels, titles, placeholders, buttons, messages, including those of hidden layers), copied verbatim, in a Markdown table with exactly these columns:
-| Figma component | Text | Usage |
-|---|---|---|
+## Conditional messages and texts
+List, copied verbatim, only the texts that are not always displayed: error, confirmation, empty-state and loading messages, tooltips, texts of hidden layers (`visible: false`) and texts that change with a state or variant. Do not list always-visible texts (titles, labels, buttons, placeholders): they can be read on the mockup. Markdown table with exactly these columns:
+| Figma component | Text | Text type | Display condition |
+|---|---|---|---|
+Text type: error message, confirmation message, empty state, loading, tooltip, label of another state… Display condition: the state or event that shows the text (e.g. "After submitting an invalid email"). If there is no conditional text, keep the section with a single row: | - | - | - | No conditional text identified |
 
 ## Displayed data
 List the variable data shown (entered values, dynamic content, counters, dates, lists) in a Markdown table with exactly these columns:
@@ -250,6 +256,10 @@ def _prune_node(
     properties = extract_component_properties(value)
     if properties:
         pruned["properties"] = properties
+    if is_generic_layer_name(to_text(value.get("name"))) and ("type" in value or "children" in value):
+        readable = readable_layer_name(value, node_names)
+        if readable:
+            pruned["readable_name"] = readable
     return pruned
 
 
@@ -343,7 +353,7 @@ DETAIL_LEVEL_RULES = {
         ),
         "detailed": (
             "Niveau détaillé : document exhaustif pour le développement et la recette.\n"
-            "- Détail de la feature : une ligne par composant interactif, y compris les sous-composants significatifs.\n"
+            "- Détail de la feature : une ligne par composant interactif ou porteur de logique ; le détail va dans les états et le comportement, pas dans le nombre de lignes. Les sous-éléments sans comportement propre (unités, icônes décoratives, libellés statiques) sont décrits dans la ligne de leur composant.\n"
             "- Comportement : tous les états (par défaut, survol, focus, désactivé, erreur, chargement), les transitions entre états et les cas limites (vide, texte long, absence de droits). Ce qui n’est pas dans le JSON est marqué comme hypothèse.\n"
             "- Erreurs possibles : chaque erreur avec ses quatre rubriques.\n"
             "- Questions ouvertes : tout point bloquant pour le développement ou la recette."
@@ -365,7 +375,7 @@ DETAIL_LEVEL_RULES = {
         ),
         "detailed": (
             "Detailed level: exhaustive document for development and QA.\n"
-            "- Feature details: one row per interactive component, including significant sub-components.\n"
+            "- Feature details: one row per interactive or logic-carrying component; the detail goes into the states and the behavior, not into the number of rows. Sub-elements with no behavior of their own (units, decorative icons, static labels) are described in the row of their component.\n"
             "- Behavior: every state (default, hover, focus, disabled, error, loading), the transitions between states and edge cases (empty, long text, missing permissions). Anything not in the JSON is marked as an assumption.\n"
             "- Possible errors: each error with its four items.\n"
             "- Open questions: every point blocking development or QA."
@@ -400,12 +410,13 @@ TEXTS = {
         "writing_rules": [
             "- Organize the document by feature and UI zone, not as a raw list of fields; do not paraphrase the JSON mechanically.",
             "- Figma component column: the exact layer or component `name` from the JSON (e.g. Button/Primary, Input email). Never a JSON path, never the words JSON or analysis. A row supported only by the project context gets a dash (-).",
+            "- When that `name` is a generic Figma name (Frame 01010, Group 12, Rectangle 3…), first write what the element is, using `readable_name` (main component or first text), then the `name` in parentheses: \"Validate\" button (Frame 01010). Never write the generic name alone.",
             "- Use the Figma signals: `properties` and `variantOptions` feed the variants table and the states; layers with `visible: false` are usually alternative states or error messages; `interactions` give the behaviors and the ways of access.",
             "- Each row of the feature details table gets a confidence level; {low} rows must match an item in the assumptions section.",
             "- When the JSON was shortened (`children_omitted`, compact summary), do not describe the omitted parts beyond what the analysis states.",
             "- Always include the assumptions and open questions sections, stating that none was identified when that is the case.",
         ],
-        "inventory_rule": "- <component_inventory> lists what the JSON contains, zone by zone: every component in it must be covered by the feature details table (repeated ones grouped in one row).",
+        "inventory_rule": "- <component_inventory> lists what the JSON contains, zone by zone: every interactive or logic-carrying component in it must be covered by the feature details table (repeated ones grouped in one row); the others are described in the row of their parent component.",
         "pruned": (
             "JSON source pruned for the prompt: geometry, styling and ids removed; names, texts, variant properties "
             "(`properties`, `variantOptions`), hidden elements (`visible: false`), prototype interactions and hierarchy kept."
@@ -433,12 +444,13 @@ TEXTS = {
         "writing_rules": [
             "- Organiser le document par feature et par zone d’interface, pas comme une liste brute de champs ; ne pas paraphraser le JSON.",
             "- Colonne Composant Figma : le `name` exact du calque ou du composant dans le JSON (ex. Button/Primary, Input email). Jamais un chemin JSON, jamais les mots JSON ou analyse. Une ligne appuyée seulement par le contexte projet reçoit un tiret (-).",
+            "- Quand ce `name` est un nom générique de Figma (Frame 01010, Group 12, Rectangle 3…), écrire d’abord ce qu’est l’élément, en s’aidant de `readable_name` (composant principal ou premier texte), puis le `name` entre parenthèses : Bouton « Valider » (Frame 01010). Ne jamais écrire le nom générique seul.",
             "- Exploiter les signaux Figma : `properties` et `variantOptions` alimentent le tableau des variantes et les états ; les calques `visible: false` sont en général des états alternatifs ou des messages d’erreur ; `interactions` donne les comportements et les moyens d’accès.",
             "- Chaque ligne du tableau Détail de la feature reçoit un niveau de confiance ; chaque ligne {low} correspond à une entrée de la section Hypothèses.",
             "- Quand le JSON a été raccourci (`children_omitted`, résumé compact), ne pas décrire les parties omises au-delà de ce que dit l’analyse.",
             "- Toujours inclure les sections Hypothèses et Questions ouvertes, en indiquant qu’aucun élément n’a été identifié le cas échéant.",
         ],
-        "inventory_rule": "- <component_inventory> liste ce que contient le JSON, zone par zone : chacun de ses composants doit apparaître dans le tableau Détail de la feature (les éléments répétés regroupés sur une ligne).",
+        "inventory_rule": "- <component_inventory> liste ce que contient le JSON, zone par zone : chacun de ses composants interactifs ou porteurs de logique doit apparaître dans le tableau Détail de la feature (les éléments répétés regroupés sur une ligne) ; les autres sont décrits dans la ligne de leur composant parent.",
         "pruned": (
             "JSON allégé pour le prompt : géométrie, styles et ids retirés ; noms, textes, propriétés de variantes "
             "(`properties`, `variantOptions`), éléments masqués (`visible: false`), interactions de prototype et hiérarchie conservés."
@@ -495,11 +507,14 @@ Bonne ligne du tableau « Détail de la feature » :
 À éviter (chemin JSON au lieu du nom Figma, comportement vague, confiance non justifiée) :
 | #3 | $.children[2] | Button | Default | Gère le clic | Élevé |
 
+À éviter aussi (ligne pour un élément sans comportement propre, à décrire dans la ligne du champ) :
+| #7 | Unit | Texte | « h » | Affiche l’unité | Élevé |
+
 Bonne ligne du tableau « Variantes de la feature » :
 | V2 | Erreur d’identification | Après validation avec des identifiants refusés | Message « Identifiants invalides » affiché sous le formulaire | Calque « Error message » masqué par défaut (visible=false) |
 
-Bonnes lignes des tableaux « Textes de l’interface » et « Données affichées » :
-| Button/Primary | Se connecter | Libellé du bouton de validation |
+Bonnes lignes des tableaux « Messages et textes conditionnels » et « Données affichées » :
+| Error message | Identifiants invalides | Message d’erreur | Après validation avec des identifiants refusés |
 | Email saisi | Input email | Adresse email, 254 caractères au plus (hypothèse) | Vide : placeholder « Email » ; long : texte tronqué avec points de suspension (hypothèse) |
 
 Bonne erreur :
@@ -516,11 +531,14 @@ Good row of the "Feature details" table:
 Avoid (JSON path instead of the Figma name, vague behavior, unjustified confidence):
 | #3 | $.children[2] | Button | Default | Handles click | High |
 
+Avoid too (row for an element with no behavior of its own, to describe in the field row):
+| #7 | Unit | Text | "h" | Shows the unit | High |
+
 Good row of the "Feature variants" table:
 | V2 | Sign-in error | After submitting rejected credentials | "Invalid credentials" message shown below the form | "Error message" layer hidden by default (visible=false) |
 
-Good rows of the "Interface texts" and "Displayed data" tables:
-| Button/Primary | Sign in | Label of the submit button |
+Good rows of the "Conditional messages and texts" and "Displayed data" tables:
+| Error message | Invalid credentials | Error message | After submitting rejected credentials |
 | Entered email | Input email | Email address, 254 characters at most (assumption) | Empty: "Email" placeholder; long: text truncated with an ellipsis (assumption) |
 
 Good error:

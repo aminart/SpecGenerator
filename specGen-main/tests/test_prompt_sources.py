@@ -46,3 +46,25 @@ def test_json_budget_comes_from_the_environment(monkeypatch):
     assert get_max_json_chars() == 1234
     monkeypatch.setenv("CUSTOM_MAX_JSON_CHARS", "nope")
     assert get_max_json_chars() == 80_000
+
+
+def test_generic_layers_get_a_readable_name():
+    from json_analysis import is_generic_layer_name
+
+    assert is_generic_layer_name("Frame 01010") and is_generic_layer_name("frame01010") and is_generic_layer_name("Group 12")
+    assert not is_generic_layer_name("Input email") and not is_generic_layer_name("Button/Primary")
+    screen = {
+        "id": "1:1", "name": "Écran", "type": "FRAME", "children": [
+            {"id": "1:2", "name": "Frame 01010", "type": "FRAME", "children": [
+                {"id": "1:3", "name": "Label", "type": "TEXT", "characters": "Valider la commande"}]},
+            {"id": "1:4", "name": "Group 12", "type": "INSTANCE", "componentId": "9:9"},
+            {"id": "1:5", "name": "Rectangle 3", "type": "RECTANGLE"},
+        ],
+        "components": {"9:9": {"name": "Button/Secondary"}},
+    }
+    pruned = json.loads(prune_json_for_prompt(screen, 100_000)[0])
+    frame, group, rectangle = pruned["children"]
+    assert frame["readable_name"] == "« Valider la commande »"
+    assert group["readable_name"] == "Button/Secondary"  # main component from the REST components map
+    assert "readable_name" not in rectangle  # nothing to say about it
+    assert "readable_name" not in pruned  # "Écran" is a real name

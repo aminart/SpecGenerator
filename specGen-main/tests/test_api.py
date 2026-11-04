@@ -125,3 +125,15 @@ def test_exports(client):
             response = client.post(f"/api/export/{kind}/{fmt}", json={"markdown": GOOD_SPEC_FR})
             assert response.status_code == 200, (kind, fmt)
             assert response.content
+
+
+def test_spec_prompt_keeps_only_developer_useful_rows(fake_llm, client, login_screen):
+    fake_llm.queue(GOOD_SPEC_FR)
+    client.post("/api/spec/generate", json={"spec_json": login_screen})
+    prompt = fake_llm.user_prompt()
+    # Units and static labels go into their component's row, not a row of their own.
+    assert "ne reçoivent pas de ligne" in prompt and "« h »" in prompt
+    # The texts table keeps only the conditional texts, with when they show.
+    assert "## Messages et textes conditionnels" in prompt and "Ne pas lister les textes toujours visibles" in prompt
+    assert "| Composant Figma | Texte | Type de texte | Condition d’affichage |" in prompt
+    assert "| Texte | Usage |" not in prompt

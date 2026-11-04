@@ -11,7 +11,7 @@ import re
 import unicodedata
 from typing import Any
 
-from json_analysis import NON_STRUCTURAL_KEYS
+from json_analysis import NON_STRUCTURAL_KEYS, is_generic_layer_name
 
 CONFIDENCE_LEVELS = {"fr": ("Élevé", "Moyen", "Faible"), "en": ("High", "Medium", "Low")}
 
@@ -23,7 +23,7 @@ EXPECTED_HEADINGS = {
         (3, "Moyens d’accès"),
         (2, "Variantes de la feature"),
         (2, "Détail de la feature"),
-        (2, "Textes de l’interface"),
+        (2, "Messages et textes conditionnels"),
         (2, "Données affichées"),
         (2, "Erreurs possibles"),
         (2, "Hypothèses"),
@@ -36,7 +36,7 @@ EXPECTED_HEADINGS = {
         (3, "Ways of access"),
         (2, "Feature variants"),
         (2, "Feature details"),
-        (2, "Interface texts"),
+        (2, "Conditional messages and texts"),
         (2, "Displayed data"),
         (2, "Possible errors"),
         (2, "Assumptions"),
@@ -48,13 +48,13 @@ EXPECTED_TABLES = {
     "fr": {
         "Variantes de la feature": ["ID", "Variante", "Contexte d’affichage", "Différences visuelles / comportementales", "Conditions / règles"],
         "Détail de la feature": ["ID", "Composant Figma", "Type de composant", "État par défaut", "Comportement", "Niveau de confiance"],
-        "Textes de l’interface": ["Composant Figma", "Texte", "Usage"],
+        "Messages et textes conditionnels": ["Composant Figma", "Texte", "Type de texte", "Condition d’affichage"],
         "Données affichées": ["Donnée", "Composant Figma", "Format", "Cas vide / long"],
     },
     "en": {
         "Feature variants": ["ID", "Variant", "Display context", "Visual / behavioral differences", "Conditions / rules"],
         "Feature details": ["ID", "Figma component", "Component type", "Default state", "Behavior", "Confidence level"],
-        "Interface texts": ["Figma component", "Text", "Usage"],
+        "Conditional messages and texts": ["Figma component", "Text", "Text type", "Display condition"],
         "Displayed data": ["Data", "Figma component", "Format", "Empty / long case"],
     },
 }
@@ -174,7 +174,15 @@ def _table_column(markdown: str, title: str, column: str) -> list[str]:
 
 
 _FIGMA_COLUMNS = {"fr": "Composant Figma", "en": "Figma component"}
-_TEXTS_TABLE = {"fr": ("Textes de l’interface", "Texte"), "en": ("Interface texts", "Text")}
+_TEXTS_TABLE = {"fr": ("Messages et textes conditionnels", "Texte"), "en": ("Conditional messages and texts", "Text")}
+
+
+def _names_a_layer(part: str, json_names: set[str]) -> bool:
+    """A layer name, or a description followed by the layer name: Bouton « Valider » (Frame 01010)."""
+    if normalize_name(part) in json_names:
+        return True
+    match = re.search(r"\(([^()]+)\)\s*$", part)
+    return bool(match) and normalize_name(match.group(1)) in json_names
 
 
 def unknown_component_names(markdown: str, language: str, json_names: set[str]) -> list[str]:
@@ -191,7 +199,7 @@ def unknown_component_names(markdown: str, language: str, json_names: set[str]) 
                 continue
             # A row may group repeated elements: "Input email, Input password".
             parts = [part for part in re.split(r"\s*(?:,|;|<br\s*/?>|\s\+\s)\s*", cell) if normalize_name(part) not in _EMPTY_CELL]
-            if (not parts or any(normalize_name(part) not in json_names for part in parts)) and cell not in unknown:
+            if (not parts or any(not _names_a_layer(part, json_names) for part in parts)) and cell not in unknown:
                 unknown.append(cell)
     return unknown
 
@@ -218,7 +226,7 @@ def collect_json_texts(data: Any) -> set[str]:
 
 
 def unknown_texts(markdown: str, language: str, json_texts: set[str]) -> list[str]:
-    """Texts of the interface texts table that are not copied from the JSON."""
+    """Texts of the conditional texts table that are not copied from the JSON."""
     if not json_texts:
         return []
     lang = "fr" if language == "fr" else "en"
@@ -269,6 +277,32 @@ def check_access_uses_context(markdown: str, language: str, screens: list[str]) 
     ]
 
 
+def generic_component_names(markdown: str, language: str) -> list[str]:
+    """Generic Figma names (Frame 01010, Group 12…) written alone in a Figma component column."""
+    lang = "fr" if language == "fr" else "en"
+    found: list[str] = []
+    for title, columns in EXPECTED_TABLES[lang].items():
+        if _FIGMA_COLUMNS[lang] not in columns:
+            continue
+        for cell in _table_column(markdown, title, _FIGMA_COLUMNS[lang]):
+            for part in re.split(r"\s*(?:,|;|<br\s*/?>|\s\+\s)\s*", cell):
+                name = part.strip().strip("`*")
+                if name and normalize_name(name) not in _EMPTY_CELL and is_generic_layer_name(name) and name not in found:
+                    found.append(name)
+    if not found:
+        return []
+    names = ", ".join(f"« {name} »" for name in found)
+    if lang == "fr":
+        return [
+            f"Nom de calque générique écrit seul dans la colonne Composant Figma : {names}. Écrire ce qu’est l’élément "
+            "puis ce nom entre parenthèses, par exemple Bouton « Valider » (Frame 01010)."
+        ]
+    return [
+        f"Generic layer name written alone in the Figma component column: {names}. Write what the element is, "
+        "then that name in parentheses, e.g. \"Validate\" button (Frame 01010)."
+    ]
+
+
 def validate_spec(
     markdown: str,
     language: str,
@@ -277,7 +311,9 @@ def validate_spec(
     context_screens: list[str] | None = None,
 ) -> dict[str, list[str]]:
     return {
-        "structure": check_structure(markdown, language) + check_access_uses_context(markdown, language, context_screens or []),
+        "structure": check_structure(markdown, language)
+        + check_access_uses_context(markdown, language, context_screens or [])
+        + generic_component_names(markdown, language),
         "unknown_components": unknown_component_names(markdown, language, json_names),
         "unknown_texts": unknown_texts(markdown, language, json_texts or set()),
     }
@@ -301,7 +337,7 @@ def format_issues_for_model(issues: dict[str, list[str]], language: str) -> str:
         if issues.get("unknown_texts"):
             texts = ", ".join(f"« {text} »" for text in issues["unknown_texts"])
             lines.append(
-                f"- Ces textes du tableau Textes de l’interface ne figurent pas dans le JSON : {texts}. Recopiez les "
+                f"- Ces textes du tableau Messages et textes conditionnels ne figurent pas dans le JSON : {texts}. Recopiez les "
                 "textes exactement tels qu’ils sont dans le JSON, ou supprimez les lignes inventées."
             )
         return "\n".join(lines)
@@ -320,7 +356,7 @@ def format_issues_for_model(issues: dict[str, list[str]], language: str) -> str:
         )
     if issues.get("unknown_texts"):
         lines.append(
-            "- These texts of the Interface texts table are not in the JSON: "
+            "- These texts of the Conditional messages and texts table are not in the JSON: "
             + ", ".join(f'"{text}"' for text in issues["unknown_texts"])
             + ". Copy the texts exactly as they are in the JSON, or remove the invented rows."
         )
