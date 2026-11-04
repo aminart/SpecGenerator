@@ -133,6 +133,7 @@ def test_spec_prompt_keeps_only_developer_useful_rows(fake_llm, client, login_sc
     prompt = fake_llm.user_prompt()
     # Units and static labels go into their component's row, not a row of their own.
     assert "ne reçoivent pas de ligne" in prompt and "« h »" in prompt
-    # The texts table lists the wording to integrate, with when it shows, not a description of each label.
+    # The texts table keeps only the conditional texts, with when they show.
+    assert "## Messages et textes conditionnels" in prompt and "Ne pas lister les textes toujours visibles" in prompt
     assert "| Composant Figma | Texte | Type de texte | Condition d’affichage |" in prompt
     assert "| Texte | Usage |" not in prompt

@@ -23,7 +23,7 @@ EXPECTED_HEADINGS = {
         (3, "Moyens d’accès"),
         (2, "Variantes de la feature"),
         (2, "Détail de la feature"),
-        (2, "Textes de l’interface"),
+        (2, "Messages et textes conditionnels"),
         (2, "Données affichées"),
         (2, "Erreurs possibles"),
         (2, "Hypothèses"),
@@ -36,7 +36,7 @@ EXPECTED_HEADINGS = {
         (3, "Ways of access"),
         (2, "Feature variants"),
         (2, "Feature details"),
-        (2, "Interface texts"),
+        (2, "Conditional messages and texts"),
         (2, "Displayed data"),
         (2, "Possible errors"),
         (2, "Assumptions"),
@@ -48,13 +48,13 @@ EXPECTED_TABLES = {
     "fr": {
         "Variantes de la feature": ["ID", "Variante", "Contexte d’affichage", "Différences visuelles / comportementales", "Conditions / règles"],
         "Détail de la feature": ["ID", "Composant Figma", "Type de composant", "État par défaut", "Comportement", "Niveau de confiance"],
-        "Textes de l’interface": ["Composant Figma", "Texte", "Type de texte", "Condition d’affichage"],
+        "Messages et textes conditionnels": ["Composant Figma", "Texte", "Type de texte", "Condition d’affichage"],
         "Données affichées": ["Donnée", "Composant Figma", "Format", "Cas vide / long"],
     },
     "en": {
         "Feature variants": ["ID", "Variant", "Display context", "Visual / behavioral differences", "Conditions / rules"],
         "Feature details": ["ID", "Figma component", "Component type", "Default state", "Behavior", "Confidence level"],
-        "Interface texts": ["Figma component", "Text", "Text type", "Display condition"],
+        "Conditional messages and texts": ["Figma component", "Text", "Text type", "Display condition"],
         "Displayed data": ["Data", "Figma component", "Format", "Empty / long case"],
     },
 }
@@ -174,7 +174,7 @@ def _table_column(markdown: str, title: str, column: str) -> list[str]:
 
 
 _FIGMA_COLUMNS = {"fr": "Composant Figma", "en": "Figma component"}
-_TEXTS_TABLE = {"fr": ("Textes de l’interface", "Texte"), "en": ("Interface texts", "Text")}
+_TEXTS_TABLE = {"fr": ("Messages et textes conditionnels", "Texte"), "en": ("Conditional messages and texts", "Text")}
 
 
 def unknown_component_names(markdown: str, language: str, json_names: set[str]) -> list[str]:
@@ -218,7 +218,7 @@ def collect_json_texts(data: Any) -> set[str]:
 
 
 def unknown_texts(markdown: str, language: str, json_texts: set[str]) -> list[str]:
-    """Texts of the interface texts table that are not copied from the JSON."""
+    """Texts of the conditional texts table that are not copied from the JSON."""
     if not json_texts:
         return []
     lang = "fr" if language == "fr" else "en"
@@ -301,7 +301,7 @@ def format_issues_for_model(issues: dict[str, list[str]], language: str) -> str:
         if issues.get("unknown_texts"):
             texts = ", ".join(f"« {text} »" for text in issues["unknown_texts"])
             lines.append(
-                f"- Ces textes du tableau Textes de l’interface ne figurent pas dans le JSON : {texts}. Recopiez les "
+                f"- Ces textes du tableau Messages et textes conditionnels ne figurent pas dans le JSON : {texts}. Recopiez les "
                 "textes exactement tels qu’ils sont dans le JSON, ou supprimez les lignes inventées."
             )
         return "\n".join(lines)
@@ -320,7 +320,7 @@ def format_issues_for_model(issues: dict[str, list[str]], language: str) -> str:
         )
     if issues.get("unknown_texts"):
         lines.append(
-            "- These texts of the Interface texts table are not in the JSON: "
+            "- These texts of the Conditional messages and texts table are not in the JSON: "
             + ", ".join(f'"{text}"' for text in issues["unknown_texts"])
             + ". Copy the texts exactly as they are in the JSON, or remove the invented rows."
         )

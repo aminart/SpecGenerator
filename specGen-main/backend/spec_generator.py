@@ -53,11 +53,11 @@ Utiliser un tableau Markdown avec exactement ces colonnes :
 |---|---|---|---|---|---|
 Une ligne par élément que le développeur doit implémenter : composant interactif, conteneur qui porte une logique (liste, formulaire, onglets) ou élément dont l’affichage change selon un état. Les éléments qui n’ont pas de comportement propre (unité ou suffixe comme « h », « € » ou « % », icône décorative, séparateur, libellé statique d’un champ, texte d’aide) ne reçoivent pas de ligne : les mentionner dans la ligne du composant auquel ils appartiennent (ex. « Champ durée, suffixe « h » »).
 
-## Textes de l’interface
-Lister, recopiés mot pour mot, les textes que le développeur doit intégrer et dont le contenu ou l’affichage n’est pas évident à la lecture de la maquette : titres, libellés de boutons et d’actions, placeholders, messages d’erreur, de confirmation, d’état vide ou de chargement, info-bulles, textes des calques masqués. Ne pas lister les unités, symboles, chiffres, valeurs d’exemple (elles vont dans Données affichées) ni les textes d’un seul caractère. Tableau Markdown avec exactement ces colonnes :
+## Messages et textes conditionnels
+Lister, recopiés mot pour mot, uniquement les textes qui ne sont pas affichés en permanence : messages d’erreur, de confirmation, d’état vide ou de chargement, info-bulles, textes des calques masqués (`visible: false`) et textes qui changent selon un état ou une variante. Ne pas lister les textes toujours visibles (titres, libellés, boutons, placeholders) : ils se lisent sur la maquette. Tableau Markdown avec exactement ces colonnes :
 | Composant Figma | Texte | Type de texte | Condition d’affichage |
 |---|---|---|---|
-Type de texte : titre, libellé de bouton, placeholder, message d’erreur, message de confirmation, état vide, info-bulle… Condition d’affichage : « Toujours » pour un texte permanent, sinon l’état ou l’événement qui l’affiche (ex. « Après validation avec un email invalide »).
+Type de texte : message d’erreur, message de confirmation, état vide, chargement, info-bulle, libellé d’un autre état… Condition d’affichage : l’état ou l’événement qui affiche le texte (ex. « Après validation avec un email invalide »). S’il n’y a aucun texte conditionnel, garder la section avec une seule ligne : | - | - | - | Aucun texte conditionnel identifié |
 
 ## Données affichées
 Lister les données variables affichées (valeurs saisies, contenus dynamiques, compteurs, dates, listes) dans un tableau Markdown avec exactement ces colonnes :
@@ -114,11 +114,11 @@ Use a Markdown table with exactly these columns:
 |---|---|---|---|---|---|
 One row per element the developer has to implement: interactive component, container carrying logic (list, form, tabs) or element whose display depends on a state. Elements with no behavior of their own (unit or suffix such as "h", "€" or "%", decorative icon, separator, static field label, helper text) get no row: mention them in the row of the component they belong to (e.g. "Duration field, suffix "h"").
 
-## Interface texts
-List, copied verbatim, the texts the developer has to integrate and whose content or display is not obvious from the mockup: titles, button and action labels, placeholders, error, confirmation, empty-state and loading messages, tooltips, texts of hidden layers. Do not list units, symbols, numbers, sample values (they go in Displayed data) or one-character texts. Markdown table with exactly these columns:
+## Conditional messages and texts
+List, copied verbatim, only the texts that are not always displayed: error, confirmation, empty-state and loading messages, tooltips, texts of hidden layers (`visible: false`) and texts that change with a state or variant. Do not list always-visible texts (titles, labels, buttons, placeholders): they can be read on the mockup. Markdown table with exactly these columns:
 | Figma component | Text | Text type | Display condition |
 |---|---|---|---|
-Text type: title, button label, placeholder, error message, confirmation message, empty state, tooltip… Display condition: "Always" for a permanent text, otherwise the state or event that shows it (e.g. "After submitting an invalid email").
+Text type: error message, confirmation message, empty state, loading, tooltip, label of another state… Display condition: the state or event that shows the text (e.g. "After submitting an invalid email"). If there is no conditional text, keep the section with a single row: | - | - | - | No conditional text identified |
 
 ## Displayed data
 List the variable data shown (entered values, dynamic content, counters, dates, lists) in a Markdown table with exactly these columns:
@@ -505,7 +505,7 @@ Bonne ligne du tableau « Détail de la feature » :
 Bonne ligne du tableau « Variantes de la feature » :
 | V2 | Erreur d’identification | Après validation avec des identifiants refusés | Message « Identifiants invalides » affiché sous le formulaire | Calque « Error message » masqué par défaut (visible=false) |
 
-Bonnes lignes des tableaux « Textes de l’interface » et « Données affichées » :
+Bonnes lignes des tableaux « Messages et textes conditionnels » et « Données affichées » :
 | Error message | Identifiants invalides | Message d’erreur | Après validation avec des identifiants refusés |
 | Email saisi | Input email | Adresse email, 254 caractères au plus (hypothèse) | Vide : placeholder « Email » ; long : texte tronqué avec points de suspension (hypothèse) |
 
@@ -529,7 +529,7 @@ Avoid too (row for an element with no behavior of its own, to describe in the fi
 Good row of the "Feature variants" table:
 | V2 | Sign-in error | After submitting rejected credentials | "Invalid credentials" message shown below the form | "Error message" layer hidden by default (visible=false) |
 
-Good rows of the "Interface texts" and "Displayed data" tables:
+Good rows of the "Conditional messages and texts" and "Displayed data" tables:
 | Error message | Invalid credentials | Error message | After submitting rejected credentials |
 | Entered email | Input email | Email address, 254 characters at most (assumption) | Empty: "Email" placeholder; long: text truncated with an ellipsis (assumption) |
 

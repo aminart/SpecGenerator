@@ -115,10 +115,9 @@ Lancement de l’application (hypothèse).
 | #2 | Button/Primary | Bouton | Actif | Ouvre Home | Élevé |
 | #3 | - | Case à cocher | - | - | Faible |
 
-## Textes de l’interface
+## Messages et textes conditionnels
 | Composant Figma | Texte | Type de texte | Condition d’affichage |
 |---|---|---|---|
-| Button/Primary | « Se connecter » | Libellé de bouton | Toujours |
 | Error message | Identifiants invalides | Message d’erreur | Après validation avec des identifiants refusés |
 
 ## Données affichées
