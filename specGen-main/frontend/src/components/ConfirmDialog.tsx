@@ -30,13 +30,13 @@ export function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,12,22,0.55)] p-4" onClick={onCancel}>
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-[480px] rounded-xl bg-white p-6 shadow-[0_12px_40px_rgba(16,24,64,0.25)]"
+        className="w-full max-w-[480px] rounded-xl bg-surface p-6 shadow-[0_12px_40px_rgba(16,24,64,0.25)]"
       >
         <h2 id="confirm-title" className="text-xl font-bold text-ink">
           {title}

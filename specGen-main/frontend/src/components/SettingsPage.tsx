@@ -33,8 +33,8 @@ function TextInput({
       disabled={disabled}
       aria-invalid={invalid || undefined}
       onChange={(event) => onChange(event.target.value)}
-      className={`min-h-[44px] w-full min-w-0 rounded-lg border px-3.5 text-[15px] text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-[3px] focus:ring-navy-soft disabled:bg-[#F2F3F8] disabled:text-ink-muted ${
-        invalid ? "border-[1.5px] border-[#C0392B] focus:border-[#C0392B]" : "border-line-strong focus:border-navy"
+      className={`min-h-[44px] w-full min-w-0 rounded-lg border bg-surface px-3.5 text-[15px] text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-[3px] focus:ring-navy-soft disabled:bg-surface-3 disabled:text-ink-muted ${
+        invalid ? "border-[1.5px] border-danger focus:border-danger" : "border-line-strong focus:border-accent"
       }`}
     />
   );
@@ -163,7 +163,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
             <ArrowRight className="h-5 w-5 text-white" aria-hidden />
           </span>
           <div>
-            <h2 className="text-lg font-bold text-navy">Bienvenue dans SpecGenerator</h2>
+            <h2 className="text-lg font-bold text-accent">Bienvenue dans SpecGenerator</h2>
             <p className="mt-1 text-sm leading-normal text-ink-body">
               Configurez la connexion au service IA pour activer la génération du contexte et des spécifications. La conversion en Markdown fonctionne déjà
               sans configuration.
@@ -173,7 +173,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
       )}
 
       {saved.env_fields.length > 0 && (
-        <div className="flex gap-3 rounded-[10px] border border-line bg-white px-5 py-4 text-[13px] leading-relaxed text-ink-muted">
+        <div className="flex gap-3 rounded-[10px] border border-line bg-surface px-5 py-4 text-[13px] leading-relaxed text-ink-muted">
           <Info className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
           <p>
             Certains paramètres sont fournis par le fichier <b className="font-medium text-ink-body">.env</b>
@@ -182,9 +182,9 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
         </div>
       )}
 
-      <section className="rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(16,24,64,0.06)]">
+      <section className="rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(16,24,64,0.06)]">
         <div className="px-6 pb-2 pt-8 sm:px-10">
-          <h1 className="text-[30px] font-bold leading-tight text-navy">Paramètres de connexion</h1>
+          <h1 className="text-[30px] font-bold leading-tight text-accent">Paramètres de connexion</h1>
           <p className="mt-2 text-sm leading-normal text-ink-muted">
             Ces informations sont fournies par votre service informatique. Elles restent enregistrées sur ce poste.
           </p>
@@ -192,13 +192,13 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
 
         <div className="flex flex-col gap-6 px-6 pb-8 pt-6 sm:px-10">
           {test?.ok && (
-            <div role="status" className="flex items-center gap-3 rounded-lg border border-[#B7E0C8] bg-success-soft px-4 py-3.5">
+            <div role="status" className="flex items-center gap-3 rounded-lg border border-success-soft bg-success-soft px-4 py-3.5">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success">
-                <Check className="h-[13px] w-[13px] text-white" strokeWidth={3.5} aria-hidden />
+                <Check className="h-[13px] w-[13px] text-surface" strokeWidth={3.5} aria-hidden />
               </span>
               <div>
                 <p className="text-[15px] font-medium text-success-text">{test.title}</p>
-                <p className="mt-0.5 text-[13px] text-[#2F6B4A]">
+                <p className="mt-0.5 text-[13px] text-success-text">
                   Testée le {formatDateTime(test.at)} · {test.message}
                 </p>
               </div>
@@ -206,13 +206,13 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
           )}
 
           {test?.ok && test.checks && test.checks.length > 0 && (
-            <ul className="-mt-3 flex flex-col gap-2 rounded-lg border border-line bg-[#FAFBFD] px-4 py-3 text-[13px]">
+            <ul className="-mt-3 flex flex-col gap-2 rounded-lg border border-line bg-surface-2 px-4 py-3 text-[13px]">
               {test.checks.map((check) => (
                 <li key={check.name} className="flex gap-2">
                   {check.ok ? (
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" strokeWidth={3} aria-label="Conforme" />
                   ) : (
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#B54708]" aria-label="À ajuster" />
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-label="À ajuster" />
                   )}
                   <span className="text-ink-body">
                     <b className="font-medium">{check.name}</b> · {check.message}
@@ -240,8 +240,8 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
               hint={fromEnv("api_key") ? envHint : "Chiffrée avec votre compte Windows : elle n’est jamais réaffichée en clair."}
             >
               <div
-                className={`flex min-h-[48px] items-center gap-3 rounded-lg border bg-[#FAFBFD] pl-3.5 pr-2 ${
-                  failedField === "api_key" ? "border-[1.5px] border-[#C0392B]" : "border-line-strong"
+                className={`flex min-h-[48px] items-center gap-3 rounded-lg border bg-surface-2 pl-3.5 pr-2 ${
+                  failedField === "api_key" ? "border-[1.5px] border-danger" : "border-line-strong"
                 }`}
               >
                 <Lock className="h-[18px] w-[18px] text-ink-muted" aria-hidden />
@@ -250,7 +250,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
                   <button
                     type="button"
                     onClick={() => setApiKey("")}
-                    className="min-h-[36px] rounded-md border border-line-strong bg-white px-3 text-[13px] font-medium text-ink hover:bg-[#F2F3F8]"
+                    className="min-h-[36px] rounded-md border border-line-strong bg-surface px-3 text-[13px] font-medium text-ink hover:bg-surface-3"
                   >
                     Modifier
                   </button>
@@ -272,13 +272,13 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
                   type="button"
                   onClick={() => setShowKey((current) => !current)}
                   aria-label={showKey ? "Masquer la clé" : "Afficher la clé"}
-                  className="flex min-h-[44px] w-11 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-white hover:bg-[#F2F3F8]"
+                  className="flex min-h-[44px] w-11 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-surface hover:bg-surface-3"
                 >
                   {showKey ? <EyeOff className="h-[18px] w-[18px] text-ink-muted" /> : <Eye className="h-[18px] w-[18px] text-ink-muted" />}
                 </button>
               </div>
               {saved.has_api_key && (
-                <button type="button" className="self-start text-[13px] font-medium text-navy underline" onClick={() => setApiKey(null)}>
+                <button type="button" className="self-start text-[13px] font-medium text-accent underline" onClick={() => setApiKey(null)}>
                   Garder la clé enregistrée
                 </button>
               )}
@@ -297,18 +297,18 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
           >
             {saved.certificate ? (
               <div
-                className={`flex items-center gap-3 rounded-lg bg-white px-3.5 py-3 ${
-                  failedField === "certificate" ? "border-[1.5px] border-[#C0392B]" : "border border-line-strong"
+                className={`flex items-center gap-3 rounded-lg bg-surface px-3.5 py-3 ${
+                  failedField === "certificate" ? "border-[1.5px] border-danger" : "border border-line-strong"
                 }`}
               >
                 {failedField === "certificate" || expiry?.tone === "error" ? (
-                  <ShieldAlert className="h-[22px] w-[22px] shrink-0 text-[#B42318]" strokeWidth={1.8} aria-hidden />
+                  <ShieldAlert className="h-[22px] w-[22px] shrink-0 text-danger-text" strokeWidth={1.8} aria-hidden />
                 ) : (
-                  <ShieldCheck className="h-[22px] w-[22px] shrink-0 text-navy" strokeWidth={1.8} aria-hidden />
+                  <ShieldCheck className="h-[22px] w-[22px] shrink-0 text-accent" strokeWidth={1.8} aria-hidden />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{saved.certificate.name}</div>
-                  <div className={`text-xs ${failedField === "certificate" || expiry?.tone === "error" ? "text-[#B42318]" : expiry?.tone === "warning" ? "text-[#7A4B00]" : "text-ink-muted"}`}>
+                  <div className={`text-xs ${failedField === "certificate" || expiry?.tone === "error" ? "text-danger-text" : expiry?.tone === "warning" ? "text-warning-text" : "text-ink-muted"}`}>
                     {failedField === "certificate"
                       ? "Non reconnu par le serveur"
                       : [saved.certificate.imported_at && `Importé le ${new Date(saved.certificate.imported_at).toLocaleDateString("fr-FR")}`, expiry?.label]
@@ -321,7 +321,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
                     type="button"
                     disabled={busy === "certificate"}
                     onClick={() => certificateInput.current?.click()}
-                    className="min-h-[36px] rounded-md border border-line-strong bg-white px-3 text-[13px] font-medium text-ink hover:bg-[#F2F3F8]"
+                    className="min-h-[36px] rounded-md border border-line-strong bg-surface px-3 text-[13px] font-medium text-ink hover:bg-surface-3"
                   >
                     {busy === "certificate" ? "Import…" : "Remplacer"}
                   </button>
@@ -332,7 +332,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
                 type="button"
                 disabled={busy === "certificate"}
                 onClick={() => certificateInput.current?.click()}
-                className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-line-dashed text-sm font-medium text-navy hover:border-navy hover:bg-navy-softer"
+                className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-line-dashed text-sm font-medium text-accent hover:border-accent hover:bg-navy-softer"
               >
                 <Plus className="h-[18px] w-[18px]" aria-hidden />
                 {busy === "certificate" ? "Import…" : "Choisir le fichier .crt"}
@@ -383,20 +383,20 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
           </details>
 
           {test && !test.ok && (
-            <div role="alert" className="flex gap-3 rounded-lg border border-[#F4C7C3] bg-[#FEF3F2] p-4">
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#B42318]" aria-hidden />
+            <div role="alert" className="flex gap-3 rounded-lg border border-danger-soft bg-danger-soft p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" aria-hidden />
               <div>
-                <p className="text-[15px] font-medium text-[#912018]">{test.title}</p>
-                <p className="mt-1 text-sm leading-normal text-[#7A271A]">{test.message}</p>
+                <p className="text-[15px] font-medium text-danger-text">{test.title}</p>
+                <p className="mt-1 text-sm leading-normal text-ink-body">{test.message}</p>
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 rounded-b-xl border-t border-line bg-[#FAFBFD] px-6 py-5 sm:px-10">
+        <div className="flex flex-wrap items-center gap-3 rounded-b-xl border-t border-line bg-surface-2 px-6 py-5 sm:px-10">
           {saved.configured && !isDirty ? (
             <>
-              <button type="button" onClick={handleClear} disabled={busy !== null} className="min-h-[44px] px-1 text-sm font-medium text-[#B42318] underline">
+              <button type="button" onClick={handleClear} disabled={busy !== null} className="min-h-[44px] px-1 text-sm font-medium text-danger-text underline">
                 Effacer les paramètres
               </button>
               <span className="flex-[1_1_40px]" />
@@ -426,11 +426,11 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
       </section>
 
       {isFirstSetup ? (
-        <button type="button" onClick={onLater} className="self-center text-sm font-medium text-navy hover:text-navy-dark">
+        <button type="button" onClick={onLater} className="self-center text-sm font-medium text-accent hover:text-accent-ink">
           Configurer plus tard
         </button>
       ) : (
-        <div className="flex gap-3 rounded-[10px] border border-line bg-white px-5 py-4">
+        <div className="flex gap-3 rounded-[10px] border border-line bg-surface px-5 py-4">
           <Info className="mt-0.5 h-[18px] w-[18px] shrink-0 text-ink-muted" aria-hidden />
           <p className="text-[13px] leading-relaxed text-ink-muted">
             Paramètres enregistrés dans <b className="font-medium text-ink-body">{saved.storage_dir}</b>. Pour un déploiement sur plusieurs postes, un fichier{" "}

@@ -6,6 +6,7 @@ import { HomePage } from "./components/HomePage";
 import { MarkdownPage, type MarkdownState } from "./components/MarkdownPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { SpecPage, type SpecState } from "./components/SpecPage";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { ToastProvider, useToast } from "./components/Toasts";
 import { api } from "./lib/api";
 import type { Health, LoadedFile, MarkdownDoc, Page } from "./lib/types";
@@ -117,7 +118,7 @@ function Workspace() {
 
   return (
     <div className="min-h-screen">
-      <header className="z-40 flex min-h-16 flex-wrap items-stretch lg:sticky lg:top-0 bg-white px-4 shadow-[0_1px_0_#E2E4EC,0_2px_8px_rgba(16,24,64,0.04)] sm:px-7">
+      <header className="z-40 flex min-h-16 flex-wrap items-stretch lg:sticky lg:top-0 bg-surface px-4 shadow-[0_1px_0_var(--nn-line)] sm:px-7">
         <button type="button" onClick={() => setPage("home")} className="mr-9 flex items-center gap-2.5 text-[15px] font-bold text-ink">
           <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-navy">
             <FileText className="h-4 w-4 text-white" strokeWidth={2} aria-hidden />
@@ -133,13 +134,13 @@ function Workspace() {
                 type="button"
                 onClick={() => setPage(tab.id)}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap border-b-[3px] px-4 text-[15px] lg:min-h-16 transition hover:bg-[#F2F3F8] ${
-                  active ? "border-navy font-medium text-navy" : "border-transparent text-ink-body"
+                className={`flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap border-b-[3px] px-4 text-[15px] lg:min-h-16 transition hover:bg-surface-3 ${
+                  active ? "border-accent font-medium text-accent" : "border-transparent text-ink-body"
                 }`}
               >
                 {tab.done && (
                   <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-success" aria-label="Terminé">
-                    <Check className="h-[11px] w-[11px] text-white" strokeWidth={3.5} aria-hidden />
+                    <Check className="h-[11px] w-[11px] text-surface" strokeWidth={3.5} aria-hidden />
                   </span>
                 )}
                 {tab.label}
@@ -153,7 +154,7 @@ function Workspace() {
             onClick={() => setConfirmReset(true)}
             disabled={!hasWork}
             title={hasWork ? "Effacer les fichiers et documents de ce poste" : "Rien à effacer"}
-            className="flex min-h-[36px] items-center gap-2 rounded-full px-3 text-[13px] font-medium text-ink-muted transition hover:bg-[#F2F3F8] hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            className="flex min-h-[36px] items-center gap-2 rounded-full px-3 text-[13px] font-medium text-ink-muted transition hover:bg-surface-3 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <Trash2 className="h-[15px] w-[15px]" aria-hidden />
             <span className="hidden sm:inline">Tout effacer</span>
@@ -167,20 +168,21 @@ function Workspace() {
               aria-label={`${llmReady ? "LLM connecté" : "Mode aperçu"} : paramètres de connexion`}
               title={llmReady ? `Modèle : ${health.model}` : "Configurer la connexion"}
               className={`flex min-h-[36px] items-center gap-2 rounded-full px-3 text-[13px] font-medium transition ${
-                llmReady ? "bg-success-soft text-success-text hover:bg-[#DDF0E5]" : "bg-[#FFF4DE] text-[#7A4B00] hover:bg-[#FCEBC7]"
-              } ${page === "settings" ? (llmReady ? "ring-2 ring-[#9ED3B5]" : "ring-2 ring-[#E8C77E]") : ""}`}
+                llmReady ? "bg-success-soft text-success-text hover:opacity-90" : "bg-warning-soft text-warning-text hover:opacity-90"
+              } ${page === "settings" ? (llmReady ? "ring-2 ring-success" : "ring-2 ring-warning") : ""}`}
             >
-              <span className={`h-2 w-2 rounded-full ${llmReady ? "bg-success" : "bg-[#C77700]"}`} />
+              <span className={`h-2 w-2 rounded-full ${llmReady ? "bg-success" : "bg-warning"}`} />
               {llmReady ? "LLM connecté" : "Mode aperçu"}
               <Settings className="h-[15px] w-[15px]" aria-hidden />
             </button>
           )}
+          <ThemeToggle />
         </div>
       </header>
 
       {(healthError || (health && !llmReady)) && page !== "settings" && (
-        <div className="border-b border-[#F3D9A4] bg-[#FFF7E6]">
-          <p className="flex items-center gap-2 px-4 py-2 text-sm text-[#7A4B00] sm:px-7">
+        <div className="border-b border-warning-line bg-warning-soft">
+          <p className="flex items-center gap-2 px-4 py-2 text-sm text-warning-text sm:px-7">
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
             {healthError
               ? "Le serveur Python est injoignable. Vérifiez qu’il est bien démarré."

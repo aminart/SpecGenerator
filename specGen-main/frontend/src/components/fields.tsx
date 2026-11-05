@@ -70,13 +70,13 @@ export function LargeDropzone({
       <label
         htmlFor={id}
         {...dropHandlers}
-        className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border-[1.5px] border-dashed px-6 py-7 text-center transition hover:border-navy hover:bg-navy-softer ${
-          isDragging ? "border-navy bg-navy-softer" : "border-line-dashed bg-[#FAFBFD]"
+        className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border-[1.5px] border-dashed px-6 py-7 text-center transition hover:border-accent hover:bg-navy-softer ${
+          isDragging ? "border-accent bg-navy-softer" : "border-line-dashed bg-surface-2"
         }`}
       >
-        <CloudUpload className="h-9 w-9 text-[#7A8098]" strokeWidth={1.5} aria-hidden />
+        <CloudUpload className="h-9 w-9 text-ink-subtle" strokeWidth={1.5} aria-hidden />
         <span className="text-[15px] text-ink-body">
-          Glissez-déposez {multiple ? "vos fichiers" : "le fichier"} ou <span className="font-medium text-navy underline">parcourir</span>
+          Glissez-déposez {multiple ? "vos fichiers" : "le fichier"} ou <span className="font-medium text-accent underline">parcourir</span>
         </span>
         <span className="text-xs text-ink-subtle">{formats}</span>
       </label>
@@ -104,8 +104,8 @@ export function AddFileButton({
       <label
         htmlFor={id}
         {...dropHandlers}
-        className={`flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed text-sm font-medium text-navy transition hover:border-navy hover:bg-navy-softer ${
-          isDragging ? "border-navy bg-navy-softer" : "border-line-dashed"
+        className={`flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed text-sm font-medium text-accent transition hover:border-accent hover:bg-navy-softer ${
+          isDragging ? "border-accent bg-navy-softer" : "border-line-dashed"
         }`}
       >
         <Plus className="h-4 w-4" aria-hidden />
@@ -133,14 +133,14 @@ export function FileChip({
   onRemove?: () => void;
   action?: ReactNode;
 }) {
-  const toneClass = detailTone === "success" ? "text-success-text" : detailTone === "error" ? "text-red-700" : "text-ink-muted";
+  const toneClass = detailTone === "success" ? "text-success-text" : detailTone === "error" ? "text-danger-text" : "text-ink-muted";
   return (
     <div
       className={`flex items-center gap-3 rounded-lg px-3.5 py-3 ${
-        highlighted ? "border-[1.5px] border-navy bg-navy-softer" : "border border-line-strong bg-white"
+        highlighted ? "border-[1.5px] border-accent bg-navy-softer" : "border border-line-strong bg-surface"
       }`}
     >
-      <span className="shrink-0 text-navy">{icon}</span>
+      <span className="shrink-0 text-accent">{icon}</span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium text-ink" title={name}>
           {name}
@@ -153,7 +153,7 @@ export function FileChip({
           type="button"
           onClick={onRemove}
           aria-label={`Retirer ${name}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-subtle hover:bg-[#F2F3F8] hover:text-ink"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-subtle hover:bg-surface-3 hover:text-ink"
         >
           <X className="h-4 w-4" />
         </button>
@@ -169,7 +169,7 @@ export function LanguageField({ value, onChange }: { value: Language; onChange: 
   ];
   return (
     <Field label="Langue de sortie">
-      <div role="radiogroup" aria-label="Langue de sortie" className="flex rounded-lg bg-[#F2F3F8] p-1">
+      <div role="radiogroup" aria-label="Langue de sortie" className="flex rounded-lg bg-surface-3 p-1">
         {options.map((option) => (
           <button
             key={option.value}
@@ -178,7 +178,7 @@ export function LanguageField({ value, onChange }: { value: Language; onChange: 
             aria-checked={value === option.value}
             onClick={() => onChange(option.value)}
             className={`min-h-[36px] flex-1 rounded-md text-sm transition ${
-              value === option.value ? "bg-white font-medium text-ink shadow-[0_1px_2px_rgba(16,24,64,0.12)]" : "text-ink-muted hover:text-ink"
+              value === option.value ? "bg-surface font-medium text-ink shadow-[0_1px_2px_rgba(16,24,64,0.12)]" : "text-ink-muted hover:text-ink"
             }`}
           >
             {option.label}
@@ -194,7 +194,7 @@ export function FileLink({ accept, onFiles, children }: { accept: string; onFile
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <>
-      <button type="button" className="font-medium text-navy underline hover:text-navy-dark" onClick={() => inputRef.current?.click()}>
+      <button type="button" className="font-medium text-accent underline hover:text-accent-ink" onClick={() => inputRef.current?.click()}>
         {children}
       </button>
       <input
