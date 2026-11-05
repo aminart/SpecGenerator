@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Check, Download } from "lucide-react";
-import { downloadExport } from "../lib/api";
+import { Check, Download, Languages } from "lucide-react";
+import { api, downloadExport } from "../lib/api";
 import { formatDateTime, LANGUAGE_LABELS } from "../lib/files";
 import type { DocKind, FeatureImage, Language } from "../lib/types";
 import { useToast } from "./Toasts";
-import { renderDiagramsForExport } from "./MermaidDiagram";
+import { mermaidError, renderDiagramsForExport } from "./MermaidDiagram";
 
 export interface ResultTab {
   id: string;
@@ -73,6 +73,8 @@ export function ResultCard({
 
 interface DocumentResult {
   markdown: string;
+  warnings?: string[];
+  language?: Language;
   generatedAt?: string;
   originalMarkdown?: string;
   editedAt?: string;
@@ -130,6 +132,69 @@ export function ExportButtons({
         {busy === "html" ? "Export…" : "HTML"}
       </button>
     </>
+  );
+}
+
+const MERMAID_BLOCK = /```mermaid\n[\s\S]*?\n```/g;
+
+/** A translated diagram that no longer parses is replaced by the original one, at the same place. */
+async function keepValidDiagrams(translated: string, source: string): Promise<string> {
+  const originals = source.match(MERMAID_BLOCK) ?? [];
+  const blocks = translated.match(MERMAID_BLOCK) ?? [];
+  const fixed = await Promise.all(
+    blocks.map(async (block, index) => {
+      const code = block.slice("```mermaid\n".length, -"\n```".length);
+      return (await mermaidError(code)) && originals[index] ? originals[index] : block;
+    }),
+  );
+  let index = 0;
+  return translated.replace(MERMAID_BLOCK, () => fixed[index++]);
+}
+
+/** Translates the document into the other language, after generation (edits included). */
+export function TranslateButton<T extends DocumentResult>({
+  kind,
+  result,
+  language,
+  disabledReason,
+  onTranslated,
+}: {
+  kind: DocKind;
+  result: T;
+  language: Language;
+  disabledReason?: string | null;
+  onTranslated: (result: T, language: Language) => void;
+}) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const target: Language = language === "fr" ? "en" : "fr";
+
+  const handleTranslate = async () => {
+    setBusy(true);
+    try {
+      const translated = await api.translate(result.markdown, kind, language, target);
+      const markdown = await keepValidDiagrams(translated.markdown, result.markdown);
+      // The translation becomes the reference version: "Version générée" goes back to it.
+      onTranslated({ ...result, markdown, warnings: translated.warnings, language: target, originalMarkdown: undefined, editedAt: undefined }, target);
+      toast("success", `Document traduit en ${target === "en" ? "anglais" : "français"} en ${translated.duration} s.`);
+    } catch (error) {
+      toast("error", (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="btn-secondary"
+      disabled={busy || Boolean(disabledReason)}
+      title={disabledReason ?? undefined}
+      onClick={handleTranslate}
+    >
+      <Languages className="h-4 w-4" aria-hidden />
+      {busy ? "Traduction…" : target === "en" ? "Traduire en anglais" : "Traduire en français"}
+    </button>
   );
 }
 

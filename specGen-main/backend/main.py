@@ -46,6 +46,7 @@ from json_analysis import analyze_json_structure, classify_component_scope
 from markdown_cleanup import remove_html_breaks, unwrap_markdown_fence
 from drawio_converter import NotADrawioFile
 from markdown_converter import SUPPORTED_EXTENSIONS, convert_to_markdown
+from translator import translate_markdown
 from mermaid_generator import generate_mermaid_flow_from_context
 from app_info import APP_ID, APP_NAME, VERSION
 from app_paths import frontend_dist_dir
@@ -103,6 +104,13 @@ class MarkdownDocument(BaseModel):
 
 class MarkdownBundleRequest(BaseModel):
     documents: list[MarkdownDocument]
+
+
+class TranslateRequest(BaseModel):
+    markdown: str
+    kind: Literal["context", "spec"]
+    source_language: Language = "fr"
+    target_language: Language = "en"
 
 
 class ExportRequest(BaseModel):
@@ -346,6 +354,23 @@ def bundle_markdown(request: MarkdownBundleRequest) -> Response:
         media_type="application/zip",
         headers={"Content-Disposition": 'attachment; filename="markdown.zip"'},
     )
+
+
+@app.post("/api/translate")
+def translate_document(request: TranslateRequest) -> dict[str, Any]:
+    _require_llm()
+    if request.source_language == request.target_language:
+        raise HTTPException(status_code=400, detail="Le document est déjà dans cette langue.")
+    if not request.markdown.strip():
+        raise HTTPException(status_code=400, detail="Aucun document à traduire.")
+    start = time.perf_counter()
+    with generation_journal("translate", document=request.kind, source=request.source_language, target=request.target_language):
+        try:
+            translated = translate_markdown(request.markdown, request.kind, request.source_language, request.target_language)
+        except Exception as exc:
+            raise _generation_error(exc) from exc
+        set_result(markdown=translated["markdown"], warnings=translated["warnings"])
+    return {**translated, "duration": round(time.perf_counter() - start, 1)}
 
 
 @app.post("/api/export/{kind}/{fmt}")

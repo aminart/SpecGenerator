@@ -85,6 +85,8 @@ export interface ContextResult {
   corrected?: boolean;
   timings: { analysis: number; llm: number; total: number };
   generatedAt?: string;
+  /** Language of the document (it changes when the document is translated). */
+  language?: Language;
   /** The document as generated, kept once the user edits it so they can go back. */
   originalMarkdown?: string;
   editedAt?: string;
@@ -99,6 +101,8 @@ export interface SpecResult {
   scope: ComponentScope;
   timings: { total: number };
   generatedAt?: string;
+  /** Language of the document (it changes when the document is translated). */
+  language?: Language;
   /** The document as generated, kept once the user edits it so they can go back. */
   originalMarkdown?: string;
   editedAt?: string;

@@ -36,6 +36,8 @@ export const api = {
   /** With `fix`, asks the model to correct a diagram that did not parse. */
   generateMermaid: (markdown: string, language: Language, fix?: { previous_code: string; error: string }) =>
     request<{ mermaid: string }>("/api/context/mermaid", { markdown, language, ...fix }),
+  translate: (markdown: string, kind: DocKind, source_language: Language, target_language: Language) =>
+    request<{ markdown: string; warnings: string[]; duration: number }>("/api/translate", { markdown, kind, source_language, target_language }),
   generateSpec: (body: unknown) => request<SpecResult>("/api/spec/generate", body),
   settings: () => request<ConnectionSettings>("/api/settings"),
   saveSettings: (form: SettingsForm) => request<ConnectionSettings>("/api/settings", form, "PUT"),

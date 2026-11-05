@@ -72,9 +72,10 @@ def fake_llm(monkeypatch: pytest.MonkeyPatch) -> FakeLLM:
     import main
     import mermaid_generator
     import spec_generator
+    import translator
 
     llm = FakeLLM()
-    for module in (spec_generator, context_generator, mermaid_generator):
+    for module in (spec_generator, context_generator, mermaid_generator, translator):
         monkeypatch.setattr(module, "get_openai_client", lambda: llm)
     monkeypatch.setattr(main, "_require_llm", lambda: None)
     return llm
