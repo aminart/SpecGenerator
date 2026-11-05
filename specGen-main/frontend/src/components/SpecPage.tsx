@@ -8,6 +8,7 @@ import { GenerateFooter, PageLayout } from "./Layout";
 import { DocumentView, EditToggle } from "./DocumentEditor";
 import { documentMeta, editedResult, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
+import { TranslateButton } from "./TranslateButton";
 import { useToast } from "./Toasts";
 
 export interface SpecState {
@@ -39,7 +40,10 @@ export function SpecPage({
   const toast = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const result = state.result;
+  // The document keeps its own language once translated; the form field is for the next generation.
+  const docLanguage = result?.language ?? state.language;
   const usesGeneratedContext = !state.importedContext && Boolean(generatedContext);
   const businessContext = state.importedContext ? String(state.importedContext.content) : generatedContext;
 
@@ -54,7 +58,7 @@ export function SpecPage({
         component_library: componentLibrary?.content ?? null,
         language: state.language,
       });
-      update({ result: { ...generated, generatedAt: new Date().toISOString() } });
+      update({ result: { ...generated, generatedAt: new Date().toISOString(), language: state.language } });
       setEditing(false);
       const warningCount = generated.warnings?.length ?? 0;
       toast(
@@ -190,17 +194,31 @@ export function SpecPage({
         <ProgressPanel title="Génération de la spécification" steps={["Lecture des sources", "Analyse de la structure JSON", "Rédaction par l’IA", "Mise en forme du document"]} />
       ) : result ? (
         <ResultCard
-          eyebrow={state.language === "en" ? "Detailed UX / HMI specification" : "Spécification UX / HMI détaillée"}
-          title={documentTitle(result.markdown, state.language === "en" ? "UX / HMI Specification" : "Spécification UX / HMI")}
-          meta={documentMeta(result, state.language)}
+          eyebrow={docLanguage === "en" ? "Detailed UX / HMI specification" : "Spécification UX / HMI détaillée"}
+          title={documentTitle(result.markdown, docLanguage === "en" ? "UX / HMI Specification" : "Spécification UX / HMI")}
+          meta={documentMeta(result, docLanguage)}
           actions={
             <>
-              <EditToggle editing={editing} onToggle={() => setEditing(!editing)} />
-              <ExportButtons kind="spec" markdown={result.markdown} language={state.language} image={state.image} />
+              <EditToggle editing={editing} disabled={translating} onToggle={() => setEditing(!editing)} />
+              <TranslateButton
+                kind="spec"
+                result={result}
+                language={docLanguage}
+                disabled={editing}
+                disabledReason={!llmReady ? "Configuration LLM incomplète : traduction désactivée." : null}
+                onBusyChange={setTranslating}
+                onTranslated={(translated) => update({ result: translated })}
+              />
+              <ExportButtons kind="spec" markdown={result.markdown} language={docLanguage} image={state.image} />
             </>
           }
         >
           <WarningsPanel warnings={result.warnings} />
+          {translating && (
+            <p className="mb-4 rounded-lg border border-line bg-surface-2 p-3 text-sm text-ink-muted" aria-live="polite">
+              Traduction en cours, section par section : de 30 s à quelques minutes selon la longueur du document.
+            </p>
+          )}
           <DocumentView
             markdown={result.markdown}
             originalMarkdown={result.originalMarkdown}

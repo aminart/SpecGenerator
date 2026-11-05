@@ -76,11 +76,17 @@ interface DocumentResult {
   generatedAt?: string;
   originalMarkdown?: string;
   editedAt?: string;
+  translatedAt?: string;
 }
 
 export function documentMeta(result: DocumentResult, language: Language): string {
   const edited = result.editedAt && result.originalMarkdown !== undefined && result.originalMarkdown !== result.markdown;
-  return [`Généré le ${formatDateTime(result.generatedAt)}`, edited && `modifié le ${formatDateTime(result.editedAt)}`, LANGUAGE_LABELS[language]]
+  return [
+    `Généré le ${formatDateTime(result.generatedAt)}`,
+    result.translatedAt && `traduit le ${formatDateTime(result.translatedAt)}`,
+    edited && `modifié le ${formatDateTime(result.editedAt)}`,
+    LANGUAGE_LABELS[language],
+  ]
     .filter(Boolean)
     .join(" · ");
 }

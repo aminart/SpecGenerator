@@ -52,6 +52,7 @@ from app_paths import frontend_dist_dir
 from openai_client import get_missing_settings, get_model_name, is_custom_configured
 from settings_api import router as settings_router
 from spec_generator import generate_spec
+from translation import translate_markdown
 
 SPEC_TEMPLATE_KEY = "ux_hmi_detailed"
 FRONTEND_DIST = frontend_dist_dir()
@@ -103,6 +104,11 @@ class MarkdownDocument(BaseModel):
 
 class MarkdownBundleRequest(BaseModel):
     documents: list[MarkdownDocument]
+
+
+class TranslateRequest(BaseModel):
+    markdown: str
+    target_language: Language
 
 
 class ExportRequest(BaseModel):
@@ -303,6 +309,27 @@ def generate_spec_document(request: SpecRequest) -> dict[str, Any]:
         "corrected": generated["corrected"],
         "inventory": generated["inventory"],
         "scope": scope,
+        "timings": {"total": round(time.perf_counter() - timing_start, 1)},
+    }
+
+
+@app.post("/api/translate/{kind}")
+def translate_document(kind: Literal["context", "spec"], request: TranslateRequest) -> dict[str, Any]:
+    """Translates a generated (possibly edited) document into the other language."""
+    _require_llm()
+    if not request.markdown.strip():
+        raise HTTPException(status_code=400, detail="Le document à traduire est vide.")
+    timing_start = time.perf_counter()
+    with generation_journal(f"translate_{kind}", language=request.target_language):
+        try:
+            translated = translate_markdown(request.markdown, request.target_language)
+        except Exception as exc:
+            raise _generation_error(exc) from exc
+        set_result(markdown=translated["markdown"], warnings=translated["warnings"])
+    return {
+        "markdown": translated["markdown"],
+        "warnings": translated["warnings"],
+        "language": request.target_language,
         "timings": {"total": round(time.perf_counter() - timing_start, 1)},
     }
 

@@ -10,6 +10,10 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 - Versionnement : fichier `VERSION` unique, ce journal, `scripts/bump_version.py`, version affichée sur
   l'accueil et dans les propriétés de l'exe, workflow qui fabrique l'exe et le joint à chaque release GitHub.
 - Contrat du portail : `GET /health`, options `--port`, `--no-browser` et `--version` du lanceur.
+- Traduction après génération : bouton **Traduire en anglais / en français** sur le contexte et la
+  spécification. Le document affiché, modifications comprises, est traduit section par section ; la
+  traduction devient la version de référence pour l'édition et les exports (titres et modèles Word dans
+  la nouvelle langue). Les libellés d'interface entre « », les noms de calques et le code restent tels quels.
 
 ### Modifié
 

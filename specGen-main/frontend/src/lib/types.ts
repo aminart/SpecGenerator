@@ -88,6 +88,9 @@ export interface ContextResult {
   /** The document as generated, kept once the user edits it so they can go back. */
   originalMarkdown?: string;
   editedAt?: string;
+  /** Language of the document shown: it changes when the document is translated. */
+  language?: Language;
+  translatedAt?: string;
 }
 
 export interface SpecResult {
@@ -102,4 +105,7 @@ export interface SpecResult {
   /** The document as generated, kept once the user edits it so they can go back. */
   originalMarkdown?: string;
   editedAt?: string;
+  /** Language of the document shown: it changes when the document is translated. */
+  language?: Language;
+  translatedAt?: string;
 }
