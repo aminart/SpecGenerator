@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { FileUp, Layers, Monitor } from "lucide-react";
 import type { Page } from "../lib/types";
+import { APP_VERSION } from "../lib/version";
 
 const CARDS: { page: Page; step: string; title: string; description: string; io: string[]; icon: ReactNode }[] = [
   {
@@ -62,6 +63,7 @@ export function HomePage({ onNavigate }: { onNavigate: (page: Page) => void }) {
           </section>
         ))}
       </div>
+      <p className="mt-10 text-center text-[13px] text-ink-subtle">SpecGen v{APP_VERSION}</p>
     </main>
   );
 }

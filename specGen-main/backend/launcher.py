@@ -1,6 +1,13 @@
-"""Entry point of SpecGenerator.exe: starts the local server and opens the browser."""
+"""Entry point of SpecGenerator.exe: starts the local server and opens the browser.
+
+Portal contract (same options in every app of the suite):
+    SpecGenerator.exe [--port 8010] [--no-browser] [--version]
+    GET /health -> {"status": "ok", "app": "specgen", "name": "SpecGen", "version": "..."}
+"""
 from __future__ import annotations
 
+import argparse
+import json
 import socket
 import sys
 import threading
@@ -10,15 +17,16 @@ import webbrowser
 
 import uvicorn
 
+from app_info import APP_ID, APP_NAME, DEFAULT_PORT, VERSION
+
 HOST = "127.0.0.1"
-PREFERRED_PORT = 8000
 
 
 def _is_specgenerator_running(port: int) -> bool:
     try:
-        with urllib.request.urlopen(f"http://{HOST}:{port}/api/health", timeout=1) as response:
-            return response.status == 200 and b"configured" in response.read()
-    except OSError:
+        with urllib.request.urlopen(f"http://{HOST}:{port}/health", timeout=1) as response:
+            return response.status == 200 and json.loads(response.read()).get("app") == APP_ID
+    except (OSError, ValueError):
         return False
 
 
@@ -41,15 +49,37 @@ def _open_when_ready(url: str, port: int) -> None:
         time.sleep(0.5)
 
 
-def main() -> None:
-    if _is_specgenerator_running(PREFERRED_PORT):
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="SpecGenerator", description=f"{APP_NAME} : serveur local")
+    parser.add_argument("--port", type=int, default=None,
+                        help=f"port d'écoute (défaut {DEFAULT_PORT}) ; s'il est pris par une autre application, le lancement échoue")
+    parser.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur (lancement par le portail)")
+    parser.add_argument("--version", action="version", version=f"{APP_NAME} {VERSION}")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _parse_args(argv)
+    port = args.port or DEFAULT_PORT
+    url = f"http://{HOST}:{port}"
+
+    if _is_specgenerator_running(port):
         # Already running (e.g. double-clicked twice): just show it.
-        webbrowser.open(f"http://{HOST}:{PREFERRED_PORT}")
+        print(f"{APP_NAME} est déjà lancé sur {url}")
+        if not args.no_browser:
+            webbrowser.open(url)
         return
 
-    port = PREFERRED_PORT if _port_is_free(PREFERRED_PORT) else _free_port()
-    url = f"http://{HOST}:{port}"
-    print("SpecGenerator")
+    if not _port_is_free(port):
+        if args.port is not None:
+            # Port imposed (by the portal): never move silently, the caller would look in the wrong place.
+            print(f"Le port {port} est déjà utilisé par une autre application : {APP_NAME} ne peut pas démarrer.",
+                  file=sys.stderr)
+            sys.exit(2)
+        port = _free_port()
+        url = f"http://{HOST}:{port}"
+
+    print(f"{APP_NAME} {VERSION}")
     print(f"L'application est disponible sur {url}")
     print("Gardez cette fenêtre ouverte pendant l'utilisation ; fermez-la pour arrêter l'application.")
     sys.stdout.flush()
@@ -57,7 +87,8 @@ def main() -> None:
     # Imported here so the window shows the message above while the app loads.
     from main import app
 
-    threading.Thread(target=_open_when_ready, args=(url, port), daemon=True).start()
+    if not args.no_browser:
+        threading.Thread(target=_open_when_ready, args=(url, port), daemon=True).start()
     uvicorn.run(app, host=HOST, port=port, log_level="warning")
 
 

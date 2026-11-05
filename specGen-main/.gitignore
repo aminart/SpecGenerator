@@ -3,3 +3,6 @@ __pycache__/
 frontend/dist/
 *.tsbuildinfo
 .pytest_cache/
+# Fabrication de l exe (PyInstaller)
+/build/
+/dist/

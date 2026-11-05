@@ -9,7 +9,7 @@ Aucun prerequis : ni Python, ni Node.js.
 2. Double-cliquez sur SpecGenerator.exe
    - une fenetre noire s'ouvre : gardez-la ouverte pendant l'utilisation,
      la fermer arrete l'application ;
-   - le navigateur s'ouvre sur http://127.0.0.1:8000
+   - le navigateur s'ouvre sur http://127.0.0.1:8010
 3. Au premier lancement, l'ecran "Parametres de connexion" s'affiche :
    - URL du service
    - Cle API
