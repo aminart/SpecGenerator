@@ -51,3 +51,53 @@ export function unwrapMarkdownFence(markdown: string): string {
   const outer = /^\s*```(?:markdown|md)?[ \t]*\n([\s\S]*?)\n```\s*$/i.exec(markdown);
   return outer ? `${outer[1].trim()}\n` : markdown;
 }
+
+const HTML_BREAK = /(?:\s*<\s*br\s*\/?\s*>\s*)+/gi;
+const CELL_BULLET = /^[-*•–]\s+/;
+
+/**
+ * Same rule as remove_html_breaks in the backend: `<br>` in a table cell becomes a semicolon,
+ * elsewhere a line break. Code blocks (Mermaid labels use `<br/>`) are kept.
+ */
+export function removeHtmlBreaks(markdown: string, language: "fr" | "en" = "fr"): string {
+  if (!/<\s*br/i.test(markdown)) return markdown;
+  const separator = language === "fr" ? " ; " : "; ";
+  const out: string[] = [];
+  let fence: string | null = null;
+  for (const line of markdown.split("\n")) {
+    const marker = /^\s*(```|~~~)/.exec(line);
+    if (fence) {
+      out.push(line);
+      if (marker && marker[1] === fence) fence = null;
+      continue;
+    }
+    if (marker) {
+      fence = marker[1];
+      out.push(line);
+      continue;
+    }
+    if (!/<\s*br\s*\/?\s*>/i.test(line)) {
+      out.push(line);
+    } else if (line.trimStart().startsWith("|")) {
+      out.push(
+        line
+          .split("|")
+          .map((cell) => {
+            if (!/<\s*br\s*\/?\s*>/i.test(cell)) return cell;
+            const parts = cell.split(HTML_BREAK).map((part) => part.trim().replace(CELL_BULLET, "")).filter(Boolean);
+            return parts.length ? ` ${parts.join(separator)} ` : " ";
+          })
+          .join("|"),
+      );
+    } else {
+      const indent = /^\s*/.exec(line)?.[0] ?? "";
+      for (const part of line.trim().split(HTML_BREAK)) if (part.trim()) out.push(indent + part.trim());
+    }
+  }
+  return out.join("\n");
+}
+
+/** Cleanup applied to every generated document: outer ```markdown fence, then `<br>` tags. */
+export function cleanGeneratedMarkdown(markdown: string, language: "fr" | "en" = "fr"): string {
+  return removeHtmlBreaks(unwrapMarkdownFence(markdown), language);
+}

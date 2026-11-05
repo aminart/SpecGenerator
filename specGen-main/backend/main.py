@@ -43,7 +43,7 @@ from document_export import (
 from journey_analysis import analyze_user_journeys_from_json
 from generation_log import generation_journal, set_result
 from json_analysis import analyze_json_structure, classify_component_scope
-from markdown_cleanup import unwrap_markdown_fence
+from markdown_cleanup import remove_html_breaks, unwrap_markdown_fence
 from drawio_converter import NotADrawioFile
 from markdown_converter import SUPPORTED_EXTENSIONS, convert_to_markdown
 from mermaid_generator import generate_mermaid_flow_from_context
@@ -351,7 +351,7 @@ def bundle_markdown(request: MarkdownBundleRequest) -> Response:
 @app.post("/api/export/{kind}/{fmt}")
 def export_document(kind: Literal["context", "spec"], fmt: Literal["md", "html", "docx"], request: ExportRequest) -> Response:
     # Documents generated before the fence cleanup may still be wrapped in ```markdown.
-    request.markdown = unwrap_markdown_fence(request.markdown)
+    request.markdown = remove_html_breaks(unwrap_markdown_fence(request.markdown), request.language)
     if kind == "context":
         title = normalize_markdown_title(request.markdown, get_context_default_title(request.language))
         subtitle = get_context_document_subtitle(request.language)

@@ -16,6 +16,12 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 - Port par défaut : 8010 (au lieu de 8000, partagé avec Analyse documentaire). `start_app.bat` passe par
   le lanceur.
 
+### Corrigé
+
+- Contexte : plus aucune balise `<br>` (personas notamment) dans l'aperçu, l'édition et les exports Word,
+  HTML et Markdown. Dans un tableau, les éléments sont séparés par « ; », ailleurs par un retour à la ligne.
+  Les documents déjà générés sont nettoyés à l'ouverture de l'app.
+
 ## [1.0.0] — version de référence
 
 État de l'application avant le versionnement.

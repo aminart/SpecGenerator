@@ -2,7 +2,7 @@ import { isValidElement, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { MermaidDiagram } from "./MermaidDiagram";
-import { unwrapMarkdownFence } from "../lib/files";
+import { cleanGeneratedMarkdown } from "../lib/files";
 import type { FeatureImage } from "../lib/types";
 
 export const PROSE =
@@ -21,7 +21,7 @@ export const COMPONENTS: Components = {
 
 /** Renders a document body; the optional image goes right under the first section heading. */
 export function MarkdownPreview({ markdown: source, image, imageAlt }: { markdown: string; image?: FeatureImage | null; imageAlt?: string }) {
-  const markdown = unwrapMarkdownFence(source);
+  const markdown = cleanGeneratedMarkdown(source);
   let before = markdown;
   let after = "";
   if (image) {

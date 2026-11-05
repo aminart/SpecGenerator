@@ -176,3 +176,13 @@ def test_exports_draw_the_mermaid_diagrams(client):
     with zipfile.ZipFile(io.BytesIO(docx)) as archive:
         document_xml = archive.read("word/document.xml").decode()
         assert "flowchart TD" in document_xml and "```" not in document_xml
+
+
+def test_generated_context_has_no_html_breaks(fake_llm, client, app_document):
+    document = "# Vue d’ensemble du projet\n## Personas\n| Persona | Objectifs |\n|---|---|\n| Opératrice | Suivre<br>Agir |\n"
+    fake_llm.queue(document, document)
+    response = client.post("/api/context/generate", json={"json_sources": [{"name": "app.json", "content": app_document}]})
+    assert response.status_code == 200
+    markdown = response.json()["markdown"]
+    assert "<br>" not in markdown and "| Opératrice | Suivre ; Agir |" in markdown
+    assert "Aucune balise HTML" in fake_llm.user_prompt()
