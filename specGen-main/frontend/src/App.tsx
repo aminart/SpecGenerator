@@ -10,7 +10,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { ToastProvider, useToast } from "./components/Toasts";
 import { api } from "./lib/api";
 import type { Health, LoadedFile, MarkdownDoc, Page } from "./lib/types";
-import { unwrapMarkdownFence } from "./lib/files";
+import { cleanGeneratedMarkdown } from "./lib/files";
 import { usePersistentState } from "./lib/usePersistentState";
 
 const INITIAL_MARKDOWN: MarkdownState = { docs: [], activeDocId: null };
@@ -59,16 +59,16 @@ function Workspace() {
     window.scrollTo({ top: 0 });
   }, [page]);
 
-  // Documents saved before the backend cleanup may still be wrapped in ```markdown.
+  // Documents saved before the backend cleanup may still be wrapped in ```markdown or contain <br> tags.
   useEffect(() => {
     setContext((current) =>
-      current.result && unwrapMarkdownFence(current.result.markdown) !== current.result.markdown
-        ? { ...current, result: { ...current.result, markdown: unwrapMarkdownFence(current.result.markdown) } }
+      current.result && cleanGeneratedMarkdown(current.result.markdown, current.language) !== current.result.markdown
+        ? { ...current, result: { ...current.result, markdown: cleanGeneratedMarkdown(current.result.markdown, current.language) } }
         : current,
     );
     setSpec((current) =>
-      current.result && unwrapMarkdownFence(current.result.markdown) !== current.result.markdown
-        ? { ...current, result: { ...current.result, markdown: unwrapMarkdownFence(current.result.markdown) } }
+      current.result && cleanGeneratedMarkdown(current.result.markdown, current.language) !== current.result.markdown
+        ? { ...current, result: { ...current.result, markdown: cleanGeneratedMarkdown(current.result.markdown, current.language) } }
         : current,
     );
   }, [setContext, setSpec]);

@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 from json_analysis import format_analysis_for_prompt_compact
-from markdown_cleanup import unwrap_markdown_fence
+from markdown_cleanup import remove_html_breaks, unwrap_markdown_fence
 from openai_client import complete, get_openai_client
 from spec_generator import get_max_json_chars, prune_json_for_prompt
 from spec_validation import CONFIDENCE_LEVELS, check_against_structure, format_warnings
@@ -211,6 +211,7 @@ TEXTS = {
 - Use the JSON signals: the feature groups are the real screens and zones of the file; `interactions` give navigation and flows; `properties`, `variantOptions` and layers with `visible: false` reveal states, feedback and errors.
 - Personas only when the documents name or clearly describe them; otherwise put them in the hypotheses.
 - Every required table stays a Markdown table, never bullets or paragraphs.
+- No HTML tags (`<br>`, `<ul>`…): inside a table cell, separate several items with "; ".
 - When the JSON was shortened (`children_omitted`, compact analysis), do not describe the omitted parts.
 - Screen list: one row per screen or main zone found in the JSON (feature groups), its role, where it is reached from, and in "Related specs" the features of that screen that will need a detailed specification.
 - Business glossary: the domain terms of the documents with their definition and the document they come from; a term defined nowhere goes in the open questions.
@@ -229,6 +230,7 @@ TEXTS = {
 - Exploiter les signaux du JSON : les groupes fonctionnels sont les vrais écrans et zones du fichier ; `interactions` donne la navigation et les parcours ; `properties`, `variantOptions` et les calques `visible: false` révèlent les états, les retours et les erreurs.
 - Des personas seulement si les documents les nomment ou les décrivent clairement ; sinon, les mettre en hypothèses.
 - Chaque tableau demandé reste un tableau Markdown, jamais des puces ou des paragraphes.
+- Aucune balise HTML (`<br>`, `<ul>`…) : dans une cellule de tableau, séparer plusieurs éléments par « ; ».
 - Quand le JSON a été raccourci (`children_omitted`, analyse compacte), ne pas décrire les parties omises.
 - Liste des écrans : une ligne par écran ou zone principale du JSON (groupes fonctionnels), son rôle, d’où on y accède, et dans « Specs liées » les features de cet écran qui demanderont une spécification détaillée.
 - Glossaire métier : les termes du domaine présents dans les documents, avec leur définition et le document d’où ils viennent ; un terme défini nulle part va dans les questions ouvertes.
@@ -366,7 +368,7 @@ def generate_context_markdown(
                 markdown, issues, corrected = fixed, fixed_issues, True
 
     return {
-        "markdown": markdown,
+        "markdown": remove_html_breaks(markdown, lang),
         "warnings": format_warnings({"structure": issues, "unknown_components": []}),
         "corrected": corrected,
     }
