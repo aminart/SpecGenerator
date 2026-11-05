@@ -47,6 +47,7 @@ from markdown_cleanup import unwrap_markdown_fence
 from drawio_converter import NotADrawioFile
 from markdown_converter import SUPPORTED_EXTENSIONS, convert_to_markdown
 from mermaid_generator import generate_mermaid_flow_from_context
+from app_info import APP_ID, APP_NAME, VERSION
 from app_paths import frontend_dist_dir
 from openai_client import get_missing_settings, get_model_name, is_custom_configured
 from settings_api import router as settings_router
@@ -58,7 +59,7 @@ FRONTEND_DIST = frontend_dist_dir()
 Language = Literal["fr", "en"]
 DetailLevel = Literal["compact", "standard", "detailed"]
 
-app = FastAPI(title="Spec Generator API")
+app = FastAPI(title="Spec Generator API", version=VERSION)
 app.include_router(settings_router)
 
 
@@ -166,6 +167,12 @@ def _safe_filename(title: str, fallback: str) -> str:
     ascii_title = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode("ascii")
     slug = re.sub(r"[^A-Za-z0-9]+", "-", ascii_title).strip("-").lower()
     return slug[:60] or fallback
+
+
+@app.get("/health")
+def portal_health() -> dict[str, str]:
+    """Portal contract: answers as soon as the server is up, whatever the AI settings."""
+    return {"status": "ok", "app": APP_ID, "name": APP_NAME, "version": VERSION}
 
 
 @app.get("/api/health")

@@ -56,13 +56,25 @@ Le sommaire est mis à jour par Word à l'ouverture (Word demande confirmation).
 
 Avec l'exécutable, déposez le template modifié **à côté de `SpecGenerator.exe`**, sous le même nom : il remplace celui intégré.
 
+## Lancement par le portail
+
+SpecGen respecte le contrat commun aux applications de la suite :
+
+| | |
+|---|---|
+| Port par défaut | **8010** |
+| Options | `--port N` (port imposé : échec explicite, code 2, s'il est pris par une autre application), `--no-browser`, `--version` |
+| État | `GET /health` → `{"status": "ok", "app": "specgen", "name": "SpecGen", "version": "…"}` |
+
+Exemples : `SpecGenerator.exe --port 8010 --no-browser`, ou depuis les sources `python backend/launcher.py --no-browser`. La version se règle dans `backend/app_info.py`.
+
 ## Développement
 
 ```bash
-# Backend (port 8000)
+# Backend (port 8010)
 python -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements.txt
-uvicorn main:app --app-dir backend --reload --port 8000
+uvicorn main:app --app-dir backend --reload --port 8010
 
 # Frontend (port 5173, proxy /api vers le backend)
 cd frontend
@@ -79,7 +91,7 @@ python -m pytest
 
 Les tests utilisent deux exports Figma de démonstration dans `tests/fixtures` (régénérables avec `python tests/make_fixture.py`). Ils couvrent l'analyse JSON, l'allègement du JSON, les vérifications de structure, l'appel au modèle (reprise des réponses coupées, options refusées) et les routes de l'API. Le workflow GitHub « Tests » les lance à chaque push, avec la vérification des types et le build du frontend.
 
-Build de production : `cd frontend && npm run build`, puis `uvicorn main:app --app-dir backend` et ouvrir http://127.0.0.1:8000.
+Build de production : `cd frontend && npm run build`, puis `python backend/launcher.py` (ouvre http://127.0.0.1:8010).
 
 ## API
 

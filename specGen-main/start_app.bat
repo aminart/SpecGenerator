@@ -16,7 +16,6 @@ if not exist frontend\dist\index.html (
     exit /b 1
 )
 
-echo SpecGen demarre sur http://127.0.0.1:8000
-start "" http://127.0.0.1:8000
-uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
+rem Le lanceur ouvre le navigateur sur http://127.0.0.1:8010 des que le serveur repond.
+python backend\launcher.py %*
 pause
