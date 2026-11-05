@@ -8,8 +8,6 @@ Générateur de documents UX à destination des développeurs :
 
 Le contexte et la spécification se modifient directement dans l'aperçu (bouton **Modifier**) : texte saisi dans la page, tableaux cellule par cellule (ajout et suppression de lignes et de colonnes), code des diagrammes Mermaid. Les exports utilisent la version modifiée, et la spécification utilise le contexte modifié. La version générée reste disponible tant que le document n'est pas régénéré.
 
-Une fois généré, chaque document peut être traduit du français vers l'anglais ou l'inverse (bouton **Traduire en anglais** / **Traduire en français**), modifications comprises. La traduction se fait section par section, garde la structure (titres, colonnes des tableaux, niveaux de confiance dans le vocabulaire de la langue cible), les noms de calques Figma et les textes cités de l'interface ; les libellés des diagrammes Mermaid sont traduits à part, et un diagramme qui ne s'afficherait plus garde sa version d'origine. Les exports suivent la langue du document.
-
 ## Architecture
 
 ```
@@ -128,5 +126,4 @@ Build de production : `cd frontend && npm run build`, puis `python backend/launc
 | POST | `/api/context/generate` | Document de contexte + parcours détectés |
 | POST | `/api/context/mermaid` | Schéma de parcours Mermaid depuis le contexte |
 | POST | `/api/spec/generate` | Spécification UX / HMI |
-| POST | `/api/translate` | Traduction FR ↔ EN d'un document généré |
 | POST | `/api/export/{context\|spec}/{md\|html\|docx}` | Export du document |

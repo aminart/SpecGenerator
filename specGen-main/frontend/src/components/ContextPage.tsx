@@ -8,7 +8,7 @@ import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./
 import { GenerateFooter, PageLayout } from "./Layout";
 import { DocumentView, EditToggle } from "./DocumentEditor";
 import { mermaidError } from "./MermaidDiagram";
-import { documentMeta, editedResult, TranslateButton, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
+import { documentMeta, editedResult, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { useToast } from "./Toasts";
 
@@ -38,8 +38,6 @@ export function ContextPage({
   const [isGenerating, setIsGenerating] = useState(false);
   const [editing, setEditing] = useState(false);
   const result = state.result;
-  // The document keeps its own language: the selector only applies to the next generation.
-  const docLanguage = result?.language ?? state.language;
   const hasSource = state.markdownFiles.length > 0 || state.jsonFiles.length > 0;
 
   const addFiles = async (files: File[], reader: (file: File) => Promise<LoadedFile>, key: "markdownFiles" | "jsonFiles") => {
@@ -64,7 +62,7 @@ export function ContextPage({
         language: state.language,
       });
       const markdown = await withFlowDiagram(generated.markdown);
-      update({ result: { ...generated, markdown, generatedAt: new Date().toISOString(), language: state.language } });
+      update({ result: { ...generated, markdown, generatedAt: new Date().toISOString() } });
       setEditing(false);
       toast(
         generated.retried_light || generated.warnings?.length ? "info" : "success",
@@ -164,9 +162,9 @@ export function ContextPage({
         />
       ) : result ? (
         <ResultCard
-          eyebrow={docLanguage === "en" ? "UX Architecture · Global application context" : "Architecture UX · Contexte global application"}
-          title={documentTitle(result.markdown, docLanguage === "en" ? "UX Architecture / Project overview" : "Architecture UX / Project overview")}
-          meta={documentMeta(result, docLanguage)}
+          eyebrow={state.language === "en" ? "UX Architecture · Global application context" : "Architecture UX · Contexte global application"}
+          title={documentTitle(result.markdown, state.language === "en" ? "UX Architecture / Project overview" : "Architecture UX / Project overview")}
+          meta={documentMeta(result, state.language)}
           cta={
             <button type="button" className="btn-soft" onClick={onUseInSpec}>
               Utiliser pour la spécification <ArrowRight className="h-4 w-4" aria-hidden />
@@ -175,14 +173,7 @@ export function ContextPage({
           actions={
             <>
               <EditToggle editing={editing} onToggle={() => setEditing(!editing)} />
-              <TranslateButton
-                kind="context"
-                result={result}
-                language={docLanguage}
-                disabledReason={llmReady ? null : "Configuration LLM incomplète : traduction désactivée."}
-                onTranslated={(translated, language) => update({ result: translated, language })}
-              />
-              <ExportButtons kind="context" markdown={result.markdown} language={docLanguage} />
+              <ExportButtons kind="context" markdown={result.markdown} language={state.language} />
             </>
           }
         >
