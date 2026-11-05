@@ -34,19 +34,19 @@ export function ResultCard({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(16,24,64,0.06)]">
+    <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(16,24,64,0.06)]">
       <div className="flex flex-col gap-5 px-6 pt-8 sm:px-10">
         <div className="flex flex-wrap items-start gap-4">
           <div className="min-w-0 flex-[1_1_320px]">
             {eyebrow && <p className="mb-1 text-[13px] font-medium uppercase tracking-[0.04em] text-ink-muted">{eyebrow}</p>}
-            <h2 className="break-words text-[30px] font-bold leading-tight text-navy">{title}</h2>
+            <h2 className="break-words text-[30px] font-bold leading-tight text-accent">{title}</h2>
             <p className="mt-1.5 text-sm text-ink-muted">{meta}</p>
           </div>
           {cta}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {tabs && tabs.length > 1 && (
-            <div role="tablist" aria-label="Affichage" className="flex flex-wrap rounded-lg bg-[#F2F3F8] p-1">
+            <div role="tablist" aria-label="Affichage" className="flex flex-wrap rounded-lg bg-surface-3 p-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -55,7 +55,7 @@ export function ResultCard({
                   aria-selected={tab.id === activeTab}
                   onClick={() => onTabChange?.(tab.id)}
                   className={`min-h-[36px] rounded-md px-4 text-sm font-medium transition ${
-                    tab.id === activeTab ? "bg-navy text-white" : "text-[#3B3F52] hover:text-ink"
+                    tab.id === activeTab ? "bg-navy text-white" : "text-ink-body hover:text-ink"
                   }`}
                 >
                   {tab.label}
@@ -137,7 +137,7 @@ export function ExportButtons({
 export function WarningsPanel({ warnings }: { warnings?: string[] }) {
   if (!warnings?.length) return null;
   return (
-    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+    <div className="mb-4 rounded-lg border border-warning-line bg-warning-soft p-3 text-sm text-warning-text">
       <p className="font-medium">Points à vérifier dans ce document</p>
       <ul className="mt-1 list-disc pl-5">
         {warnings.map((warning) => (
@@ -165,8 +165,8 @@ export function MarkdownEditor({ value, onChange }: { value: string; onChange: (
 
 export function EmptyPanel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-[560px] flex-col items-center justify-center gap-4 rounded-xl border border-line bg-white p-12 text-center">
-      <span className="flex h-16 w-16 items-center justify-center rounded-[14px] bg-navy-soft text-navy">{icon}</span>
+    <div className="flex min-h-[560px] flex-col items-center justify-center gap-4 rounded-xl border border-line bg-surface p-12 text-center">
+      <span className="flex h-16 w-16 items-center justify-center rounded-[14px] bg-navy-soft text-accent">{icon}</span>
       <h2 className="text-[22px] font-bold text-ink">{title}</h2>
       {children}
     </div>
@@ -186,10 +186,10 @@ export function ProgressPanel({ title, steps, note }: { title: string; steps: st
   const activeStep = Math.min(steps.length - 1, Math.floor(elapsed / 8));
 
   return (
-    <div className="flex min-h-[620px] flex-col items-center justify-center gap-3 rounded-xl border border-line bg-white p-12 text-center" aria-live="polite">
+    <div className="flex min-h-[620px] flex-col items-center justify-center gap-3 rounded-xl border border-line bg-surface p-12 text-center" aria-live="polite">
       <svg className="h-14 w-14 animate-spin" viewBox="0 0 48 48" fill="none" aria-hidden>
-        <circle cx="24" cy="24" r="20" stroke="#E2E4F4" strokeWidth="5" />
-        <path d="M24 4a20 20 0 0 1 20 20" stroke="#0F1D96" strokeWidth="5" strokeLinecap="round" />
+        <circle cx="24" cy="24" r="20" className="stroke-accent-soft" strokeWidth="5" />
+        <path d="M24 4a20 20 0 0 1 20 20" className="stroke-accent" strokeWidth="5" strokeLinecap="round" />
       </svg>
       <h2 className="mt-3 text-[22px] font-bold text-ink">{title}</h2>
       <p className="text-[15px] text-ink-muted">
@@ -200,19 +200,19 @@ export function ProgressPanel({ title, steps, note }: { title: string; steps: st
           <li
             key={step}
             className={`flex items-center gap-3 text-[15px] ${
-              index < activeStep ? "text-ink" : index === activeStep ? "font-medium text-navy" : "text-[#6B7085]"
+              index < activeStep ? "text-ink" : index === activeStep ? "font-medium text-accent" : "text-ink-subtle"
             }`}
           >
             {index < activeStep ? (
               <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-success">
-                <Check className="h-3 w-3 text-white" strokeWidth={3.5} aria-hidden />
+                <Check className="h-3 w-3 text-surface" strokeWidth={3.5} aria-hidden />
               </span>
             ) : index === activeStep ? (
-              <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-navy">
+              <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-accent">
                 <span className="h-2 w-2 rounded-full bg-navy" />
               </span>
             ) : (
-              <span className="h-[22px] w-[22px] rounded-full border-2 border-[#C4C8DA]" />
+              <span className="h-[22px] w-[22px] rounded-full border-2 border-line-strong" />
             )}
             {step}
           </li>

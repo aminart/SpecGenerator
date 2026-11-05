@@ -76,9 +76,9 @@ export function DocumentEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-0 z-10 -mx-2 flex flex-wrap items-center gap-3 rounded-lg border border-navy/20 bg-navy-softer px-4 py-2.5 shadow-sm">
+      <div className="sticky top-0 z-10 -mx-2 flex flex-wrap items-center gap-3 rounded-lg border border-line-strong bg-navy-softer px-4 py-2.5 shadow-sm">
         <p className="min-w-0 flex-1 text-[13px] leading-snug text-ink-muted">
-          <span className="font-medium text-navy">Mode édition.</span> Cliquez dans le texte pour le modifier (Ctrl+B gras, Ctrl+I italique, Entrée nouveau
+          <span className="font-medium text-accent">Mode édition.</span> Cliquez dans le texte pour le modifier (Ctrl+B gras, Ctrl+I italique, Entrée nouveau
           paragraphe). Survolez un bloc pour l’ajouter, le supprimer ou modifier un tableau. Les exports utilisent cette version.
         </p>
         <button type="button" className="btn-secondary min-h-[36px] px-3" onClick={undo} disabled={!history.current.length} title="Annuler la dernière modification (Ctrl+Z)">
@@ -103,7 +103,7 @@ export function DocumentEditor({
               <img
                 src={`data:${image.mime};base64,${image.base64}`}
                 alt={imageAlt ?? image.name}
-                className="my-4 max-h-[420px] w-full rounded-lg border border-line bg-[#EEF0F5] object-contain"
+                className="my-4 max-h-[420px] w-full rounded-lg border border-line bg-surface-2 object-contain"
               />
             )}
           </div>
@@ -156,7 +156,7 @@ function ToolButton({ label, onClick, children, danger }: { label: string; onCli
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
       className={`flex h-7 min-w-7 items-center justify-center gap-1 rounded px-1.5 text-xs font-medium ${
-        danger ? "text-red-700 hover:bg-red-50" : "text-ink-muted hover:bg-navy-soft hover:text-navy"
+        danger ? "text-danger-text hover:bg-danger-soft" : "text-ink-muted hover:bg-navy-soft hover:text-accent"
       }`}
     >
       {children}
@@ -167,10 +167,10 @@ function ToolButton({ label, onClick, children, danger }: { label: string; onCli
 /** Hover outline and the block's toolbar. */
 function BlockFrame({ onCommit, onInsertAfter, tools, children }: BlockProps & { tools?: ReactNode; children: ReactNode }) {
   return (
-    <div className="group relative rounded-md outline-none ring-navy/25 ring-offset-4 hover:ring-1 focus-within:ring-2">
+    <div className="group relative rounded-md outline-none ring-accent-soft ring-offset-4 ring-offset-surface hover:ring-1 focus-within:ring-2">
       <div
         contentEditable={false}
-        className="not-prose absolute -top-3 right-0 z-[5] flex items-center gap-0.5 rounded-md border border-line bg-white p-0.5 opacity-0 shadow-sm transition group-focus-within:opacity-100 group-hover:opacity-100"
+        className="not-prose absolute -top-3 right-0 z-[5] flex items-center gap-0.5 rounded-md border border-line bg-surface p-0.5 opacity-0 shadow-sm transition group-focus-within:opacity-100 group-hover:opacity-100"
       >
         {tools}
         <ToolButton label="Ajouter un paragraphe dessous" onClick={onInsertAfter}>

@@ -224,7 +224,7 @@ export function MarkdownPage({
                   aria-selected={doc.id === activeDoc.id}
                   onClick={() => update({ activeDocId: doc.id })}
                   className={`rounded-full border px-3 py-1.5 text-[13px] font-medium transition ${
-                    doc.id === activeDoc.id ? "border-navy bg-navy-softer text-navy" : "border-line-strong text-ink-muted hover:border-ink-subtle"
+                    doc.id === activeDoc.id ? "border-accent bg-navy-softer text-accent" : "border-line-strong text-ink-muted hover:border-ink-subtle"
                   }`}
                 >
                   {doc.name}
@@ -241,8 +241,8 @@ export function MarkdownPage({
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             {["Importer", "Vérifier l’aperçu", "Télécharger ou réutiliser"].map((label, index) => (
-              <span key={label} className="flex items-center gap-2 rounded-full bg-[#F2F3F8] px-3.5 py-2 text-[13px] text-[#3B3F52]">
-                <span className="font-bold text-navy">{index + 1}</span>
+              <span key={label} className="flex items-center gap-2 rounded-full bg-surface-3 px-3.5 py-2 text-[13px] text-ink-body">
+                <span className="font-bold text-accent">{index + 1}</span>
                 {label}
               </span>
             ))}

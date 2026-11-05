@@ -103,10 +103,11 @@ export function MermaidDiagram({ code }: { code: string }) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+      <div className="rounded-lg border border-danger-soft bg-danger-soft p-3 text-sm text-danger-text">
         Diagramme Mermaid invalide : {error}
       </div>
     );
   }
-  return <div className="overflow-auto rounded-lg border border-slate-200 bg-white p-4 [&_svg]:mx-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
+  // Fond papier blanc dans les deux thèmes : le diagramme garde le rendu de ses exports Word et HTML.
+  return <div className="overflow-auto rounded-lg border border-line bg-[#FFFFFF] p-4 [&_svg]:mx-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
 }

@@ -85,7 +85,7 @@ export function SpecPage({
                   name={documentTitle(generatedContext, "Document de contexte")}
                   detail="Contexte généré à l’étape « Créer un contexte » · utilisé automatiquement"
                   action={
-                    <button type="button" className="text-[13px] font-medium text-navy hover:text-navy-dark" onClick={onGoToContext}>
+                    <button type="button" className="text-[13px] font-medium text-accent hover:text-accent-ink" onClick={onGoToContext}>
                       Voir
                     </button>
                   }
@@ -106,7 +106,7 @@ export function SpecPage({
                   onRemove={() => update({ importedContext: null })}
                 />
                 {generatedContext && (
-                  <button type="button" className="self-start text-[13px] font-medium text-navy underline" onClick={() => update({ importedContext: null })}>
+                  <button type="button" className="self-start text-[13px] font-medium text-accent underline" onClick={() => update({ importedContext: null })}>
                     Revenir au contexte généré
                   </button>
                 )}
@@ -116,7 +116,7 @@ export function SpecPage({
                 <AddFileButton label="Importer un contexte (.md)" accept=".md,.markdown" onFiles={importContext} />
                 <p className="hint">
                   Ou{" "}
-                  <button type="button" className="font-medium text-navy underline" onClick={onGoToContext}>
+                  <button type="button" className="font-medium text-accent underline" onClick={onGoToContext}>
                     générez-le
                   </button>{" "}
                   à l’étape « Créer un contexte ».
@@ -145,13 +145,13 @@ export function SpecPage({
 
           <Field label="Image de la feature" optional>
             {state.image ? (
-              <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-lg border border-line-strong bg-[#EEF0F5]">
+              <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-lg border border-line-strong bg-surface-2">
                 <img src={`data:${state.image.mime};base64,${state.image.base64}`} alt={state.image.name} className="h-full w-full object-contain" />
-                <span className="absolute bottom-2 left-2.5 max-w-[70%] truncate rounded bg-white/90 px-1.5 text-xs text-ink-muted">{state.image.name}</span>
+                <span className="absolute bottom-2 left-2.5 max-w-[70%] truncate rounded bg-surface px-1.5 text-xs text-ink-muted">{state.image.name}</span>
                 <button
                   type="button"
                   onClick={() => update({ image: null })}
-                  className="absolute right-2 top-2 min-h-[32px] rounded-md border border-line-strong bg-white px-2.5 text-xs font-medium text-ink hover:bg-[#F2F3F8]"
+                  className="absolute right-2 top-2 min-h-[32px] rounded-md border border-line-strong bg-surface px-2.5 text-xs font-medium text-ink hover:bg-surface-3"
                 >
                   Retirer
                 </button>
