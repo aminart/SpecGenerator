@@ -19,7 +19,7 @@ En production, le backend sert le frontend compilé (`frontend/dist`) : un seul 
 
 ## Installation Windows
 
-- **Exécutable (recommandé)** : `SpecGenerator.exe`, sans prérequis. Il est produit par le workflow GitHub Actions « Build Windows exe » (artefact `SpecGenerator-windows`, à chaque push), ou :
+- **Exécutable (recommandé)** : `SpecGenerator.exe`, sans prérequis. Chaque release GitHub contient `SpecGenerator-X.Y.Z.exe`, fabriqué par le workflow « Build Windows exe » (voir « Versions »). Le même workflow produit aussi l'artefact `SpecGenerator-windows` à chaque push, et l'exe peut être fabriqué :
   - depuis un **Mac** : `./build_exe_mac.sh` (prérequis une fois : `brew install gh && gh auth login`). PyInstaller ne compilant pas pour Windows depuis macOS, le script fait construire l'exe par GitHub Actions, suit le build et télécharge le résultat dans `dist/windows/` ;
   - depuis un **PC Windows** : `build_exe.bat` (Python 3.11+ et Node.js 20+).
 - **Depuis les sources** : `install_windows.bat` puis `start_app.bat`.
@@ -66,7 +66,27 @@ SpecGen respecte le contrat commun aux applications de la suite :
 | Options | `--port N` (port imposé : échec explicite, code 2, s'il est pris par une autre application), `--no-browser`, `--version` |
 | État | `GET /health` → `{"status": "ok", "app": "specgen", "name": "SpecGen", "version": "…"}` |
 
-Exemples : `SpecGenerator.exe --port 8010 --no-browser`, ou depuis les sources `python backend/launcher.py --no-browser`. La version se règle dans `backend/app_info.py`.
+Exemples : `SpecGenerator.exe --port 8010 --no-browser`, ou depuis les sources `python backend/launcher.py --no-browser`. La version vient du fichier `VERSION` (voir « Versions »).
+
+## Versions
+
+Le numéro de version vit à **un seul endroit** : le fichier `VERSION`, à la racine de `specGen-main`. Le backend (`/health`, `--version`), l'interface (bas de l'accueil) et l'exe (Propriétés › Détails sous Windows) le lisent tous là. Les changements sont notés au fil de l'eau dans `CHANGELOG.md`, section « Non publié ».
+
+Numérotation `MAJEUR.MINEUR.CORRECTIF` ([versionnage sémantique](https://semver.org/lang/fr/)) :
+
+| Changement | Exemple | Nouvelle version |
+|---|---|---|
+| Correction sans nouvelle fonction | un export qui plantait | `1.0.0` → `1.0.1` (`patch`) |
+| Nouvelle fonction, rien ne casse | mode sombre, nouvel export | `1.0.1` → `1.1.0` (`minor`) |
+| Changement qui casse l'existant | paramètres enregistrés illisibles par l’ancienne version | `1.1.0` → `2.0.0` (`major`) |
+
+Publier une version :
+
+1. Vérifier que `CHANGELOG.md` décrit bien ce qui a changé, sous « Non publié ».
+2. `python scripts/bump_version.py minor` (ou `patch`, `major`, ou un numéro `1.2.0`) : met à jour `VERSION`, la version du frontend et date la section du journal.
+3. Committer, fusionner sur `main`.
+4. Sur GitHub : *Releases › Draft a new release*, tag **`vX.Y.Z`** (le même numéro que `VERSION`), coller la section du journal en description, *Publish release*.
+5. Le workflow « Build Windows exe » fabrique l'exe et le joint à la release sous le nom `SpecGenerator-X.Y.Z.exe` (une dizaine de minutes). Si le tag ne correspond pas à `VERSION`, il s'arrête avec un message.
 
 ## Développement
 
