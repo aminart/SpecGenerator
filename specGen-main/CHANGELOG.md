@@ -5,6 +5,8 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+## [1.1.0] — 2026-11-05
+
 ### Ajouté
 
 - Versionnement : fichier `VERSION` unique, ce journal, `scripts/bump_version.py`, version affichée sur
