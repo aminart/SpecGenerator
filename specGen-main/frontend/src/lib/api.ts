@@ -37,6 +37,12 @@ export const api = {
   generateMermaid: (markdown: string, language: Language, fix?: { previous_code: string; error: string }) =>
     request<{ mermaid: string }>("/api/context/mermaid", { markdown, language, ...fix }),
   generateSpec: (body: unknown) => request<SpecResult>("/api/spec/generate", body),
+  /** Translates a generated document (edits included) into the other language. */
+  translate: (kind: DocKind, markdown: string, target_language: Language) =>
+    request<{ markdown: string; warnings: string[]; language: Language; timings: { total: number } }>(`/api/translate/${kind}`, {
+      markdown,
+      target_language,
+    }),
   settings: () => request<ConnectionSettings>("/api/settings"),
   saveSettings: (form: SettingsForm) => request<ConnectionSettings>("/api/settings", form, "PUT"),
   clearSettings: () => request<ConnectionSettings>("/api/settings", undefined, "DELETE"),

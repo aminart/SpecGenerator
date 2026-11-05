@@ -8,6 +8,8 @@ Générateur de documents UX à destination des développeurs :
 
 Le contexte et la spécification se modifient directement dans l'aperçu (bouton **Modifier**) : texte saisi dans la page, tableaux cellule par cellule (ajout et suppression de lignes et de colonnes), code des diagrammes Mermaid. Les exports utilisent la version modifiée, et la spécification utilise le contexte modifié. La version générée reste disponible tant que le document n'est pas régénéré.
 
+Après la génération, le bouton **Traduire en anglais** (ou **en français**) traduit le contexte ou la spécification affichés, modifications comprises, sans relancer la génération. Le document est envoyé au modèle section par section ; une section dont la structure change (titres, lignes de tableau, blocs de code) est redemandée une fois, puis signalée dans « Points à vérifier ». Les libellés d'interface cités entre « », les noms de calques Figma, les chemins JSON et le code ne sont pas traduits ; un diagramme Mermaid qui ne s'affiche plus après traduction reprend sa version d'origine. La traduction remplace le document affiché et devient la référence pour l'édition et les exports.
+
 ## Architecture
 
 ```
