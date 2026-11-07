@@ -5,6 +5,10 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+### Ajouté
+
+- Nouvelle icône SpecGen, commune avec Studio Dock : icône de l'exe, logo de l'en-tête et icône de l'onglet (dossier `icone/`).
+
 ## [1.1.0] — 2026-11-05
 
 ### Ajouté

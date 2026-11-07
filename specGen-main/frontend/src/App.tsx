@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Check, FileText, Settings, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Settings, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ContextPage, type ContextState } from "./components/ContextPage";
 import { HomePage } from "./components/HomePage";
@@ -12,6 +12,7 @@ import { api } from "./lib/api";
 import type { Health, LoadedFile, MarkdownDoc, Page } from "./lib/types";
 import { cleanGeneratedMarkdown } from "./lib/files";
 import { usePersistentState } from "./lib/usePersistentState";
+import logoApp from "./assets/specgen.svg";
 
 const INITIAL_MARKDOWN: MarkdownState = { docs: [], activeDocId: null };
 const INITIAL_CONTEXT: ContextState = { markdownFiles: [], jsonFiles: [], language: "fr", result: null };
@@ -120,9 +121,7 @@ function Workspace() {
     <div className="min-h-screen">
       <header className="z-40 flex min-h-16 flex-wrap items-stretch lg:sticky lg:top-0 bg-surface px-4 shadow-[0_1px_0_var(--nn-line)] sm:px-7">
         <button type="button" onClick={() => setPage("home")} className="mr-9 flex items-center gap-2.5 text-[15px] font-bold text-ink">
-          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-navy">
-            <FileText className="h-4 w-4 text-white" strokeWidth={2} aria-hidden />
-          </span>
+          <img src={logoApp} alt="" width={30} height={30} className="block shrink-0" />
           SpecGenerator
         </button>
         <nav aria-label="Navigation principale" className="order-last -mx-4 flex w-[calc(100%+2rem)] items-stretch overflow-x-auto border-t border-line sm:-mx-7 sm:w-[calc(100%+3.5rem)] lg:order-none lg:mx-0 lg:w-auto lg:border-t-0">
