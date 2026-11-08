@@ -5,6 +5,12 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+### Ajouté
+
+- Convertisseur Markdown : les projets **Mapline** (`.mapline`, et `.missionmap` des anciennes versions) sont
+  convertis sans IA. Cartes d'expérience par phase, étape et persona, flows en diagramme Mermaid avec leurs
+  enchaînements, fiches personas ; les images sont laissées de côté.
+
 ## [1.1.0] — 2026-11-05
 
 ### Ajouté
