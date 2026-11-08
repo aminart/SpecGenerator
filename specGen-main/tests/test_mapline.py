@@ -1,58 +1,100 @@
-import io
 import json
-import zipfile
+from pathlib import Path
 
 import pytest
 
 from mapline_converter import NotAMaplineFile, convert_mapline
 
-
-def test_json_tree_becomes_nested_list():
-    data = {"title": "Parcours", "children": [
-        {"title": "Connexion", "note": "SSO", "children": [{"title": "Mot de passe oublié"}]},
-        {"name": "Tableau de bord"},
-    ]}
-    md = convert_mapline(json.dumps(data).encode(), "carte")
-    assert md.startswith("# carte\n")
-    assert "- Parcours\n  - Connexion\n    - _note_ : SSO\n    - Mot de passe oublié\n  - Tableau de bord" in md
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def test_json_without_node_shape_lists_fields():
-    md = convert_mapline(json.dumps({"version": 2, "author": "A"}).encode())
-    assert "- **version** : 2" in md and "- **author** : A" in md
+@pytest.fixture
+def project_md():
+    return convert_mapline((FIXTURES / "reservation.mapline").read_bytes(), "reservation")
 
 
-def test_xml_outline():
-    xml = b'<map><node text="Racine"><node text="Enfant"/></node></map>'
-    assert "- Racine\n  - Enfant" in convert_mapline(xml)
+def test_project_title_and_documents(project_md):
+    assert project_md.startswith("# Réservation en ligne\n")
+    assert "## Carte : Parcours patient" in project_md
+    assert "## Flow : Prise de rendez-vous" in project_md
+    assert "## Persona : Patient — Réserve depuis son téléphone, souvent pressé" in project_md
 
 
-def test_zip_with_json_entry():
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("content.json", json.dumps({"label": "Dans le zip"}))
-    assert "- Dans le zip" in convert_mapline(buffer.getvalue())
+def test_mission_map_steps_phases_personas(project_md):
+    assert "**Objectif** : Permettre à un patient de réserver une consultation en moins de 3 minutes" in project_md
+    assert "### Phase : Avant la visite\n\n#### Étape 1 : Découverte" in project_md
+    assert "### Phase : Pendant\n\n#### Étape 4 : Consultation" in project_md
+    # Two slots of one step: both activities under the persona, in order.
+    assert "- **Patient**\n  - Choisit un créneau\n  - Renseigne ses informations\n- **Secrétaire**" in project_md
+    assert "_Storyboard_ : Compare les créneaux affichés sur la page du cabinet" in project_md
+    assert "- **Choisit un créneau** → **Renseigne ses informations**" in project_md
+    assert "data:image" not in project_md
 
 
-def test_plain_text_kept():
-    assert "ligne 1\nligne 2" in convert_mapline("ligne 1\nligne 2".encode())
+def test_flow_mermaid_and_transitions(project_md):
+    flow = project_md.split("## Flow")[1].split("## Persona :")[0]
+    assert "_Détaille l'étape « Prise de rendez-vous »._" in flow
+    assert "**Objectifs** : Réserver sans créer de compte" in flow
+    assert "```mermaid\nflowchart LR" in flow
+    assert '{"Patient connu ?"}' in flow and '(["Début"])' in flow
+    assert "-->|Oui|" in flow
+    assert "- **Patient connu ?** → **Saisit ses coordonnées** : Non" in flow
+    assert "- **Patient connu ?** `irritant`\n  - Commentaire : Vérifier par e-mail ou téléphone" in flow
 
 
-def test_empty_file_rejected():
-    with pytest.raises(NotAMaplineFile):
-        convert_mapline(b"   ")
+def test_persona_sheet(project_md):
+    sheet = project_md.split("## Persona :")[1]
+    assert "- **Âge** : 34 ans" in sheet
+    assert "> Je veux réserver en deux minutes, entre deux réunions." in sheet
+    assert "### Frustrations\n\n- Les sites qui imposent un compte" in sheet
+    assert "- Aisance numérique : 80 %" in sheet
+    assert "### Canaux et outils" not in sheet  # empty block left out
+
+
+def test_version_1_missionmap_file():
+    md = convert_mapline((FIXTURES / "projet-v0.9.missionmap").read_bytes())
+    assert md.startswith("# Projet 0.9\n")
+    assert "- **Client**\n  - Activité héritée `irritant`" in md
+
+
+def test_alternative_card_and_note():
+    data = {
+        "version": 2, "title": "", "docs": [{"id": "m", "kind": "mission-map", "name": "", "map": {
+            "steps": [{"id": "s", "title": "Paiement", "slots": ["k"]}],
+            "personas": [{"id": "p", "name": "Client"}],
+            "activities": {"p:k": {"id": "a", "text": "Paie par carte", "note": "3-D Secure"},
+                           "p:k:b": {"id": "b", "text": "Paie par virement", "kind": "choice"}},
+            "textRows": [{"id": "r", "title": "Canal", "cells": {"s": "Web"}}],
+        }}],
+    }
+    md = convert_mapline(json.dumps(data).encode(), "paiement")
+    assert md.startswith("# paiement\n")
+    assert "  - Paie par carte\n    - Commentaire : 3-D Secure\n  - _ou_ Décision : Paie par virement" in md
+    assert "- _Canal_ : Web" in md
+
+
+@pytest.mark.parametrize(("content", "message"), [
+    (b"pas du json", "JSON illisible"),
+    (b"[]", "pas un projet Mapline"),
+    (b'{"version": 3, "docs": []}', "plus récente"),
+    (b'{"version": 2, "docs": []}', "aucun document"),
+])
+def test_invalid_files(content, message):
+    with pytest.raises(NotAMaplineFile, match=message):
+        convert_mapline(content)
 
 
 def test_api_accepts_mapline(client):
     response = client.post(
         "/api/markdown/convert",
-        files={"file": ("plan.mapline", json.dumps({"title": "Étape"}).encode(), "application/octet-stream")},
+        files={"file": ("reservation.mapline", (FIXTURES / "reservation.mapline").read_bytes(), "application/json")},
     )
     assert response.status_code == 200
-    assert response.json()["name"] == "plan.md"
-    assert "- Étape" in response.json()["markdown"]
+    assert response.json()["name"] == "reservation.md"
+    assert "## Carte : Parcours patient" in response.json()["markdown"]
 
 
-def test_api_empty_mapline_is_422(client):
-    response = client.post("/api/markdown/convert", files={"file": ("vide.mapline", b"", "application/octet-stream")})
+def test_api_invalid_mapline_is_422(client):
+    response = client.post("/api/markdown/convert", files={"file": ("vide.mapline", b"", "application/json")})
     assert response.status_code == 422
+    assert "vide.mapline" in response.json()["detail"]

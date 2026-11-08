@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "title": "Projet 0.9",
+  "objective": "Objectif d’un ancien projet",
+  "phases": [{ "id": "ph1", "title": "Phase héritée", "span": 2 }],
+  "steps": [
+    { "id": "s1", "title": "Étape héritée", "slots": ["k1"] },
+    { "id": "s2", "title": "Deuxième étape", "slots": ["k2"] }
+  ],
+  "personas": [{ "id": "p1", "name": "Client", "role": "Ancien persona", "color": 0 }],
+  "activities": { "p1:k1": { "id": "a1", "text": "Activité héritée", "tags": ["irritant"] } },
+  "scenes": {},
+  "links": [],
+  "styles": {},
+  "storyboard": false
+}
