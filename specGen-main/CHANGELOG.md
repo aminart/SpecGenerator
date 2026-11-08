@@ -5,6 +5,11 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+### Ajouté
+
+- Convertisseur Markdown : les fichiers `.mapline` sont acceptés. Leur contenu (JSON, XML, texte ou archive
+  zip) est détecté et rendu en listes imbriquées, sans IA.
+
 ## [1.1.0] — 2026-11-05
 
 ### Ajouté

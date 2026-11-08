@@ -9,7 +9,7 @@ import { MarkdownPreview } from "./MarkdownPreview";
 import { EmptyPanel, MarkdownEditor, ProgressPanel, ResultCard } from "./ResultCard";
 import { useToast } from "./Toasts";
 
-const ACCEPT = ".docx,.pdf,.pptx,.xlsx,.html,.htm,.txt,.drawio,.dio,.xml,.png,.svg";
+const ACCEPT = ".docx,.pdf,.pptx,.xlsx,.html,.htm,.txt,.drawio,.dio,.xml,.png,.svg,.mapline";
 
 export interface MarkdownState {
   docs: MarkdownDoc[];
@@ -130,7 +130,7 @@ export function MarkdownPage({
           hint={!hasAnything ? "Plusieurs fichiers ? Chacun est converti séparément. Les schémas draw.io (.drawio, ou PNG / SVG exportés avec le schéma inclus) gardent le sens de leurs flèches." : undefined}
         >
           {!hasAnything ? (
-            <LargeDropzone accept={ACCEPT} multiple formats="DOCX, PDF, PPTX, XLSX, HTML, TXT, schémas draw.io · 200 Mo max par fichier" onFiles={addFiles} />
+            <LargeDropzone accept={ACCEPT} multiple formats="DOCX, PDF, PPTX, XLSX, HTML, TXT, schémas draw.io, MAPLINE · 200 Mo max par fichier" onFiles={addFiles} />
           ) : (
             <>
               {persistedOnly.map((doc) => (
