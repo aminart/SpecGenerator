@@ -1,7 +1,7 @@
 {
   "name": "specgen-frontend",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,7 +24,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.6.1",
-    "night-navy": "github:aminart/Design-system-#d0940e50e6992c01536f39ac1a754372e45b0849",
+    "night-navy": "github:aminart/Design-system-#v1.1.0",
     "postcss": "^8.5.31",
     "tailwindcss": "^3.4.19",
     "typescript": "~5.6.3",

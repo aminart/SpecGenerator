@@ -5,9 +5,18 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+## [1.2.0] — 2026-11-08
+
 ### Ajouté
 
 - Nouvelle icône SpecGen, commune avec Studio Dock : icône de l'exe, logo de l'en-tête et icône de l'onglet (dossier `icone/`).
+
+### Modifié
+
+- En-tête commun à la suite (design system Night Navy 1.1.0) : icône et nom, onglets, puis badge LLM, thème et
+  paramètres. Le nom affiché devient « SpecGen » partout.
+- Accueil : titre aligné à gauche, « Tout effacer » déplacé dans l'en-tête de la page, étapes numérotées.
+- Titres de page en noir (plus en bleu), comme dans les autres apps.
 
 ## [1.1.0] — 2026-11-05
 

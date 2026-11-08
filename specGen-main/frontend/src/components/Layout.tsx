@@ -20,7 +20,7 @@ export function PageLayout({
       <aside className="flex max-w-full flex-[1_1_380px] flex-col border-r border-line bg-surface lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] lg:max-w-[460px]">
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-8 pb-6 pt-8">
           <div>
-            <h1 className="text-[30px] font-bold leading-tight text-accent">{title}</h1>
+            <h1 className="text-[30px] font-bold leading-tight text-ink">{title}</h1>
             <p className="mt-2 text-sm leading-normal text-ink-muted">{description}</p>
           </div>
           {fields}

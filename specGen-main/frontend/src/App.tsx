@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Check, Settings, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Settings } from "lucide-react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ContextPage, type ContextState } from "./components/ContextPage";
 import { HomePage } from "./components/HomePage";
@@ -7,12 +7,12 @@ import { MarkdownPage, type MarkdownState } from "./components/MarkdownPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { SpecPage, type SpecState } from "./components/SpecPage";
 import { ThemeToggle } from "./components/ThemeToggle";
+import logoApp from "./assets/specgen.svg";
 import { ToastProvider, useToast } from "./components/Toasts";
 import { api } from "./lib/api";
 import type { Health, LoadedFile, MarkdownDoc, Page } from "./lib/types";
 import { cleanGeneratedMarkdown } from "./lib/files";
 import { usePersistentState } from "./lib/usePersistentState";
-import logoApp from "./assets/specgen.svg";
 
 const INITIAL_MARKDOWN: MarkdownState = { docs: [], activeDocId: null };
 const INITIAL_CONTEXT: ContextState = { markdownFiles: [], jsonFiles: [], language: "fr", result: null };
@@ -119,12 +119,19 @@ function Workspace() {
 
   return (
     <div className="min-h-screen">
-      <header className="z-40 flex min-h-16 flex-wrap items-stretch lg:sticky lg:top-0 bg-surface px-4 shadow-[0_1px_0_var(--nn-line)] sm:px-7">
-        <button type="button" onClick={() => setPage("home")} className="mr-9 flex items-center gap-2.5 text-[15px] font-bold text-ink">
-          <img src={logoApp} alt="" width={30} height={30} className="block shrink-0" />
-          SpecGenerator
-        </button>
-        <nav aria-label="Navigation principale" className="order-last -mx-4 flex w-[calc(100%+2rem)] items-stretch overflow-x-auto border-t border-line sm:-mx-7 sm:w-[calc(100%+3.5rem)] lg:order-none lg:mx-0 lg:w-auto lg:border-t-0">
+      <header className="nn-appbar z-40 lg:sticky lg:top-0">
+        <a
+          href="#"
+          className="nn-appbar-brand"
+          onClick={(event) => {
+            event.preventDefault();
+            setPage("home");
+          }}
+        >
+          <img className="nn-appbar-icon" src={logoApp} alt="" />
+          SpecGen
+        </a>
+        <nav aria-label="Navigation principale" className="nn-appbar-nav">
           {tabs.map((tab) => {
             const active = page === tab.id;
             return (
@@ -133,9 +140,7 @@ function Workspace() {
                 type="button"
                 onClick={() => setPage(tab.id)}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap border-b-[3px] px-4 text-[15px] lg:min-h-16 transition hover:bg-surface-3 ${
-                  active ? "border-accent font-medium text-accent" : "border-transparent text-ink-body"
-                }`}
+                className={`nn-appbar-tab gap-2 ${active ? "is-active" : ""}`}
               >
                 {tab.done && (
                   <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-success" aria-label="Terminé">
@@ -147,35 +152,32 @@ function Workspace() {
             );
           })}
         </nav>
-        <div className="ml-auto flex items-center gap-2 py-3">
-          <button
-            type="button"
-            onClick={() => setConfirmReset(true)}
-            disabled={!hasWork}
-            title={hasWork ? "Effacer les fichiers et documents de ce poste" : "Rien à effacer"}
-            className="flex min-h-[36px] items-center gap-2 rounded-full px-3 text-[13px] font-medium text-ink-muted transition hover:bg-surface-3 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-          >
-            <Trash2 className="h-[15px] w-[15px]" aria-hidden />
-            <span className="hidden sm:inline">Tout effacer</span>
-            <span className="sr-only sm:hidden">Tout effacer</span>
-          </button>
+        <div className="nn-appbar-tools">
           {health && (
             <button
               type="button"
               onClick={() => setPage("settings")}
-              aria-current={page === "settings" ? "page" : undefined}
               aria-label={`${llmReady ? "LLM connecté" : "Mode aperçu"} : paramètres de connexion`}
               title={llmReady ? `Modèle : ${health.model}` : "Configurer la connexion"}
-              className={`flex min-h-[36px] items-center gap-2 rounded-full px-3 text-[13px] font-medium transition ${
-                llmReady ? "bg-success-soft text-success-text hover:opacity-90" : "bg-warning-soft text-warning-text hover:opacity-90"
-              } ${page === "settings" ? (llmReady ? "ring-2 ring-success" : "ring-2 ring-warning") : ""}`}
+              className={`flex min-h-[32px] items-center gap-2 rounded-full px-3 text-[13px] font-medium transition hover:opacity-90 ${
+                llmReady ? "bg-success-soft text-success-text" : "bg-warning-soft text-warning-text"
+              }`}
             >
               <span className={`h-2 w-2 rounded-full ${llmReady ? "bg-success" : "bg-warning"}`} />
-              {llmReady ? "LLM connecté" : "Mode aperçu"}
-              <Settings className="h-[15px] w-[15px]" aria-hidden />
+              <span className="hidden sm:inline">{llmReady ? "LLM connecté" : "Mode aperçu"}</span>
             </button>
           )}
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => setPage("settings")}
+            aria-label="Paramètres"
+            aria-current={page === "settings" ? "page" : undefined}
+            title="Paramètres"
+            className={`nn-icon-btn ${page === "settings" ? "bg-accent-soft text-accent-ink" : ""}`}
+          >
+            <Settings className="h-[19px] w-[19px]" aria-hidden />
+          </button>
         </div>
       </header>
 
@@ -210,7 +212,7 @@ function Workspace() {
       </ConfirmDialog>
 
       <div key={resetKey}>
-      {page === "home" && <HomePage onNavigate={setPage} />}
+      {page === "home" && <HomePage onNavigate={setPage} onReset={() => setConfirmReset(true)} canReset={hasWork} />}
       {page === "settings" && (
         <SettingsPage
           onSaved={(_settings, firstSetup) => {

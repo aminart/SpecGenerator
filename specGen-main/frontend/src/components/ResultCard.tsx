@@ -39,7 +39,7 @@ export function ResultCard({
         <div className="flex flex-wrap items-start gap-4">
           <div className="min-w-0 flex-[1_1_320px]">
             {eyebrow && <p className="mb-1 text-[13px] font-medium uppercase tracking-[0.04em] text-ink-muted">{eyebrow}</p>}
-            <h2 className="break-words text-[30px] font-bold leading-tight text-accent">{title}</h2>
+            <h2 className="break-words text-[30px] font-bold leading-tight text-ink">{title}</h2>
             <p className="mt-1.5 text-sm text-ink-muted">{meta}</p>
           </div>
           {cta}

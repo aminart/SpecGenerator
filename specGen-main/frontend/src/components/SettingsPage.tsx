@@ -163,7 +163,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
             <ArrowRight className="h-5 w-5 text-white" aria-hidden />
           </span>
           <div>
-            <h2 className="text-lg font-bold text-accent">Bienvenue dans SpecGenerator</h2>
+            <h2 className="text-lg font-bold text-ink">Bienvenue dans SpecGen</h2>
             <p className="mt-1 text-sm leading-normal text-ink-body">
               Configurez la connexion au service IA pour activer la génération du contexte et des spécifications. La conversion en Markdown fonctionne déjà
               sans configuration.
@@ -184,7 +184,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
 
       <section className="rounded-xl border border-line bg-surface shadow-[0_1px_3px_rgba(16,24,64,0.06)]">
         <div className="px-6 pb-2 pt-8 sm:px-10">
-          <h1 className="text-[30px] font-bold leading-tight text-accent">Paramètres de connexion</h1>
+          <h1 className="text-[30px] font-bold leading-tight text-ink">Paramètres de connexion</h1>
           <p className="mt-2 text-sm leading-normal text-ink-muted">
             Ces informations sont fournies par votre service informatique. Elles restent enregistrées sur ce poste.
           </p>
