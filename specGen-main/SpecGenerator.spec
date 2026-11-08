@@ -1,4 +1,5 @@
 # PyInstaller recipe for SpecGenerator.exe (run build_exe.bat, or see README).
+import os
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
@@ -62,6 +63,7 @@ exe = EXE(
     a.datas,
     [],
     name="SpecGenerator",
+    icon=os.path.join(SPECPATH, "icone", "specgen.ico"),
     version=version_info,
     console=True,
     upx=False,

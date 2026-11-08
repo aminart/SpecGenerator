@@ -32,7 +32,7 @@ export function ThemeToggle() {
       onClick={() => window.NightNavy?.toggle()}
       aria-label={label}
       title={label}
-      className="flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-surface-3 hover:text-ink"
+      className="nn-icon-btn"
     >
       {theme === "dark" ? <Sun className="h-[17px] w-[17px]" aria-hidden /> : <Moon className="h-[17px] w-[17px]" aria-hidden />}
     </button>
