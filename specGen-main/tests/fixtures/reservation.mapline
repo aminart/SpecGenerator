@@ -1,0 +1,397 @@
+{
+  "version": 2,
+  "title": "Réservation en ligne",
+  "docs": [
+    {
+      "id": "map1",
+      "kind": "mission-map",
+      "name": "Parcours patient",
+      "map": {
+        "objective": "Permettre à un patient de réserver une consultation en moins de 3 minutes",
+        "phases": [
+          {
+            "id": "zrwjoj7r",
+            "title": "Avant la visite",
+            "span": 3
+          },
+          {
+            "id": "3hmpyjpr",
+            "title": "Pendant",
+            "span": 1
+          },
+          {
+            "id": "6e2kbt83",
+            "title": "Après",
+            "span": 1
+          }
+        ],
+        "steps": [
+          {
+            "id": "y9up0f1x",
+            "title": "Découverte",
+            "slots": [
+              "wqvi9est"
+            ]
+          },
+          {
+            "id": "93qjj8tu",
+            "title": "Prise de rendez-vous",
+            "slots": [
+              "3iq3h76g",
+              "l73biime"
+            ]
+          },
+          {
+            "id": "r3axpwlc",
+            "title": "Confirmation",
+            "slots": [
+              "c0g8aohq"
+            ]
+          },
+          {
+            "id": "2hwgq4tz",
+            "title": "Consultation",
+            "slots": [
+              "4lydk3oc"
+            ]
+          },
+          {
+            "id": "hh617gsr",
+            "title": "Suivi",
+            "slots": [
+              "w4uvq40f"
+            ]
+          }
+        ],
+        "personas": [
+          {
+            "id": "cfx3z5n0",
+            "name": "Patient",
+            "role": "Réserve depuis son téléphone, souvent pressé",
+            "color": 0
+          },
+          {
+            "id": "hqqmto1c",
+            "name": "Secrétaire",
+            "role": "Gère l’agenda du cabinet",
+            "color": 1
+          },
+          {
+            "id": "rciph895",
+            "name": "Praticien",
+            "role": "Consulte et suit les dossiers",
+            "color": 2
+          }
+        ],
+        "activities": {
+          "cfx3z5n0:wqvi9est": {
+            "id": "r10gomid",
+            "text": "Cherche un praticien disponible près de chez lui"
+          },
+          "cfx3z5n0:3iq3h76g": {
+            "id": "vpvcnqay",
+            "text": "Choisit un créneau"
+          },
+          "cfx3z5n0:l73biime": {
+            "id": "7vzfj01h",
+            "text": "Renseigne ses informations"
+          },
+          "cfx3z5n0:c0g8aohq": {
+            "id": "x8ynh5bm",
+            "text": "Reçoit un SMS de confirmation"
+          },
+          "cfx3z5n0:4lydk3oc": {
+            "id": "yiymhyt9",
+            "text": "Se présente au cabinet"
+          },
+          "cfx3z5n0:w4uvq40f": {
+            "id": "e4goj7b4",
+            "text": "Reçoit son compte-rendu"
+          },
+          "hqqmto1c:l73biime": {
+            "id": "xmcpi8j9",
+            "text": "Valide la demande de rendez-vous"
+          },
+          "hqqmto1c:c0g8aohq": {
+            "id": "6w7t667t",
+            "text": "Envoie un rappel la veille"
+          },
+          "hqqmto1c:4lydk3oc": {
+            "id": "rfjxcvjm",
+            "text": "Accueille le patient"
+          },
+          "rciph895:4lydk3oc": {
+            "id": "d8it2wvb",
+            "text": "Consulte le motif et le dossier"
+          },
+          "rciph895:w4uvq40f": {
+            "id": "wqer098a",
+            "text": "Rédige le compte-rendu"
+          }
+        },
+        "scenes": {
+          "y9up0f1x": {
+            "img": null,
+            "text": "Recherche « médecin généraliste » sur son téléphone, dans le bus"
+          },
+          "93qjj8tu": {
+            "img": null,
+            "text": "Compare les créneaux affichés sur la page du cabinet"
+          }
+        },
+        "links": [
+          {
+            "id": "id6hpiv1",
+            "from": "vpvcnqay",
+            "to": "7vzfj01h"
+          },
+          {
+            "id": "uxfm10oj",
+            "from": "7vzfj01h",
+            "to": "xmcpi8j9"
+          },
+          {
+            "id": "lyp2xrl5",
+            "from": "xmcpi8j9",
+            "to": "x8ynh5bm"
+          },
+          {
+            "id": "xa5rio4o",
+            "from": "wqer098a",
+            "to": "e4goj7b4"
+          }
+        ],
+        "dividers": [],
+        "tagColors": {},
+        "styles": {},
+        "storyboard": true,
+        "textRows": []
+      }
+    },
+    {
+      "id": "dmqoqo99",
+      "kind": "flow",
+      "name": "Prise de rendez-vous",
+      "flow": {
+        "nodes": [
+          {
+            "id": "ve023c61",
+            "kind": "start",
+            "col": 0,
+            "row": 1,
+            "text": "Début"
+          },
+          {
+            "id": "fmorywwu",
+            "kind": "activity",
+            "col": 1,
+            "row": 1,
+            "text": "Affiche les créneaux libres"
+          },
+          {
+            "id": "rt7z07ms",
+            "kind": "choice",
+            "col": 2,
+            "row": 1,
+            "text": "Patient connu ?",
+            "tags": [
+              "irritant"
+            ],
+            "note": "Vérifier par e-mail ou téléphone"
+          },
+          {
+            "id": "tqurzs3t",
+            "kind": "activity",
+            "col": 3,
+            "row": 0,
+            "text": "Demande une connexion"
+          },
+          {
+            "id": "9l01k8wy",
+            "kind": "activity",
+            "col": 3,
+            "row": 2,
+            "text": "Saisit ses coordonnées"
+          },
+          {
+            "id": "ecykuesi",
+            "kind": "activity",
+            "col": 4,
+            "row": 1,
+            "text": "Confirme le rendez-vous"
+          },
+          {
+            "id": "2j9xuwqs",
+            "kind": "end",
+            "col": 5,
+            "row": 1,
+            "text": "Fin"
+          }
+        ],
+        "links": [
+          {
+            "id": "js3cvq3q",
+            "from": "ve023c61",
+            "to": "fmorywwu"
+          },
+          {
+            "id": "lcwx5g6n",
+            "from": "fmorywwu",
+            "to": "rt7z07ms"
+          },
+          {
+            "id": "ctnm2dgc",
+            "from": "rt7z07ms",
+            "to": "tqurzs3t",
+            "label": "Oui"
+          },
+          {
+            "id": "ii1z94eq",
+            "from": "rt7z07ms",
+            "to": "9l01k8wy",
+            "label": "Non"
+          },
+          {
+            "id": "eb1nls7d",
+            "from": "tqurzs3t",
+            "to": "ecykuesi"
+          },
+          {
+            "id": "yn3fizng",
+            "from": "9l01k8wy",
+            "to": "ecykuesi"
+          },
+          {
+            "id": "lx4avujg",
+            "from": "ecykuesi",
+            "to": "2j9xuwqs"
+          }
+        ],
+        "styles": {},
+        "source": {
+          "docId": "map1",
+          "kind": "step",
+          "id": "93qjj8tu"
+        },
+        "brief": "Réserver sans créer de compte"
+      }
+    },
+    {
+      "id": "ahvklmbw",
+      "kind": "persona",
+      "name": "",
+      "sheet": {
+        "name": "Patient",
+        "role": "Réserve depuis son téléphone, souvent pressé",
+        "color": 0,
+        "photo": null,
+        "fields": [
+          {
+            "id": "kq3h9suq",
+            "label": "Âge",
+            "value": "34 ans"
+          },
+          {
+            "id": "5fnk5rm1",
+            "label": "Lieu",
+            "value": "Lyon"
+          },
+          {
+            "id": "xutmubpo",
+            "label": "Situation",
+            "value": "Cadre, deux enfants"
+          }
+        ],
+        "quote": "Je veux réserver en deux minutes, entre deux réunions.",
+        "tags": [],
+        "blocks": [
+          {
+            "id": "ixnhuqz1",
+            "title": "Objectifs",
+            "view": "list",
+            "accent": "#2F55D4",
+            "items": [
+              {
+                "id": "rgfq61ly",
+                "text": "Gagner du temps"
+              }
+            ],
+            "text": ""
+          },
+          {
+            "id": "p41n9fy5",
+            "title": "Frustrations",
+            "view": "list",
+            "accent": "#C2410C",
+            "items": [
+              {
+                "id": "vdptvjyd",
+                "text": "Les sites qui imposent un compte"
+              }
+            ],
+            "text": ""
+          },
+          {
+            "id": "hgopkyyf",
+            "title": "Motivations",
+            "view": "gauges",
+            "accent": "#0F766E",
+            "items": [
+              {
+                "id": "hqczol1z",
+                "text": "Aisance numérique",
+                "level": 80
+              },
+              {
+                "id": "eqgpvmio",
+                "text": "",
+                "level": 50
+              },
+              {
+                "id": "oco071jw",
+                "text": "",
+                "level": 50
+              }
+            ],
+            "text": ""
+          },
+          {
+            "id": "rqxerfm8",
+            "title": "Comportements",
+            "view": "list",
+            "accent": "#7E22CE",
+            "items": [
+              {
+                "id": "onc072a1",
+                "text": "Réserve le soir sur mobile"
+              }
+            ],
+            "text": ""
+          },
+          {
+            "id": "f3rjmz0l",
+            "title": "Canaux et outils",
+            "view": "tags",
+            "accent": "#A16207",
+            "items": [],
+            "text": ""
+          },
+          {
+            "id": "478qg1ro",
+            "title": "Scénario",
+            "view": "text",
+            "accent": "#BE185D",
+            "items": [],
+            "text": "Utilise surtout son téléphone."
+          }
+        ],
+        "styles": {},
+        "link": {
+          "docId": "map1",
+          "personaId": "cfx3z5n0"
+        },
+        "sync": true
+      }
+    }
+  ]
+}

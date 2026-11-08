@@ -45,6 +45,7 @@ from generation_log import generation_journal, set_result
 from json_analysis import analyze_json_structure, classify_component_scope
 from markdown_cleanup import remove_html_breaks, unwrap_markdown_fence
 from drawio_converter import NotADrawioFile
+from mapline_converter import NotAMaplineFile
 from markdown_converter import SUPPORTED_EXTENSIONS, convert_to_markdown
 from mermaid_generator import generate_mermaid_flow_from_context
 from app_info import APP_ID, APP_NAME, VERSION
@@ -347,7 +348,7 @@ def convert_document(file: UploadFile = File(...)) -> dict[str, str]:
     stem = re.sub(r"\.(drawio|dio)$", "", Path(filename).stem, flags=re.IGNORECASE)
     try:
         markdown_text = convert_to_markdown(file.file.read(), extension, stem)
-    except NotADrawioFile as exc:
+    except (NotADrawioFile, NotAMaplineFile) as exc:
         raise HTTPException(status_code=422, detail=f"{filename} : {exc}") from exc
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Conversion impossible de {filename} : {exc}") from exc
