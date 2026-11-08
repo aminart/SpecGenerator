@@ -9,7 +9,11 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ### Ajouté
 
+- Convertisseur Markdown : les projets **Mapline** (`.mapline`, et `.missionmap` des anciennes versions) sont
+  convertis sans IA. Cartes d'expérience par phase, étape et persona, flows en diagramme Mermaid avec leurs
+  enchaînements, fiches personas ; les images sont laissées de côté.
 - Nouvelle icône SpecGen, commune avec Studio Dock : icône de l'exe, logo de l'en-tête et icône de l'onglet (dossier `icone/`).
+- Releases : un zip contenant l'exe est joint en plus de l'exe.
 
 ### Modifié
 
@@ -17,11 +21,6 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
   paramètres. Le nom affiché devient « SpecGen » partout.
 - Accueil : titre aligné à gauche, « Tout effacer » déplacé dans l'en-tête de la page, étapes numérotées.
 - Titres de page en noir (plus en bleu), comme dans les autres apps.
-### Ajouté
-
-- Convertisseur Markdown : les projets **Mapline** (`.mapline`, et `.missionmap` des anciennes versions) sont
-  convertis sans IA. Cartes d'expérience par phase, étape et persona, flows en diagramme Mermaid avec leurs
-  enchaînements, fiches personas ; les images sont laissées de côté.
 
 ## [1.1.0] — 2026-11-05
 
