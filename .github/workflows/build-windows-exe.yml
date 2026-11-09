@@ -6,10 +6,7 @@ name: Build Windows exe
 #   SpecGenerator-X.Y.Z.exe. Le tag doit correspondre au fichier specGen-main/VERSION.
 
 on:
-  push:
-    paths:
-      - "specGen-main/**"
-      - ".github/workflows/build-windows-exe.yml"
+  # Builds seulement pour une release (ou à la main, onglet Actions) : économise les minutes GitHub Actions.
   workflow_dispatch:
   release:
     types: [published]
