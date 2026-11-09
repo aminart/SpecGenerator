@@ -5,6 +5,21 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+## [1.2.1] — 2026-11-09
+
+### Modifié
+
+- Exécutable environ deux fois plus léger : la conversion en Markdown appelle directement le convertisseur de
+  chaque format (le type vient de l'extension) au lieu de la détection automatique de MarkItDown, qui embarquait
+  un modèle d'IA (Magika, onnxruntime, numpy) ; Excel est lu directement avec openpyxl (sans pandas). Retirés aussi
+  de l'exe : pypdfium2 (aperçus de pages PDF, inutilisés), yaml, watchfiles, uvloop.
+- Excel : cellules vides laissées vides (plus de « NaN » ni de « Unnamed: 0 »), entiers sans « .0 », lignes et
+  colonnes vides ignorées.
+
+### Corrigé
+
+- Fichiers texte enregistrés sous Windows (accents en Windows-1252) : accents correctement lus.
+
 ## [1.2.0] — 2026-11-08
 
 ### Ajouté

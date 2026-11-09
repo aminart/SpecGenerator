@@ -68,6 +68,44 @@ jobs:
       - name: Vérification
         run: ./dist/SpecGenerator.exe --version
 
+      - name: Vérification des conversions (Word, Excel, PowerPoint, PDF, HTML, texte)
+        run: |
+          set -u
+          python - <<'PY'
+          import docx, openpyxl, pptx
+          d = docx.Document(); d.add_heading("Titre Word", 1); d.save("ex.docx")
+          wb = openpyxl.Workbook(); wb.active.append(["Nom", "Nb"]); wb.active.append(["Accueil", 3]); wb.save("ex.xlsx")
+          p = pptx.Presentation(); s = p.slides.add_slide(p.slide_layouts[1]); s.shapes.title.text = "Diapo"; p.save("ex.pptx")
+          open("ex.html", "w").write("<h1>Titre HTML</h1>")
+          open("ex.txt", "w", encoding="utf-8").write("Texte accentué")
+          # PDF minimal avec une ligne de texte
+          objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                  "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+                  "<< /Length 42 >>\nstream\nBT /F1 18 Tf 30 120 Td (Bonjour PDF) Tj ET\nendstream",
+                  "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+          out, offs = "%PDF-1.4\n", []
+          for i, o in enumerate(objs, 1):
+              offs.append(len(out)); out += f"{i} 0 obj\n{o}\nendobj\n"
+          x = len(out)
+          out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n" + "".join(f"{o:010d} 00000 n \n" for o in offs)
+          out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n"
+          open("ex.pdf", "w").write(out)
+          PY
+          ./dist/SpecGenerator.exe --port 8597 --no-browser &
+          for i in $(seq 90); do curl -sf http://127.0.0.1:8597/health >/dev/null && break; sleep 1; done
+          verifier() {
+            r=$(curl -s -F "file=@$1" http://127.0.0.1:8597/api/markdown/convert)
+            echo "$1 -> $r"
+            echo "$r" | grep -q "$2" || { echo "::error::Conversion de $1 : « $2 » attendu"; exit 1; }
+          }
+          verifier ex.docx "Titre Word"
+          verifier ex.xlsx "| Accueil | 3 |"
+          verifier ex.pptx "Diapo"
+          verifier ex.pdf "Bonjour PDF"
+          verifier ex.html "Titre HTML"
+          verifier ex.txt "Texte accent"
+          ls -l dist/SpecGenerator.exe
+
       - uses: actions/upload-artifact@v4
         with:
           name: SpecGenerator-windows
@@ -81,7 +119,7 @@ jobs:
         run: |
           name="SpecGenerator-${{ steps.version.outputs.version }}.exe"
           cp dist/SpecGenerator.exe "dist/$name"
-          # Zip à côté de l'exe : passe les filtres qui bloquent le téléchargement d'un .exe.
+          # Zip à côté de l'exe (même contenu que l'artefact des Actions).
           base="SpecGenerator-${{ steps.version.outputs.version }}-windows"
           mkdir -p "dist/zip/$base"
           cp dist/SpecGenerator.exe "dist/zip/$base/"

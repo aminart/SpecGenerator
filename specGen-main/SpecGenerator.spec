@@ -40,8 +40,10 @@ datas = [
 binaries = []
 hiddenimports = collect_submodules("uvicorn")
 
-# MarkItDown and its file-type detection (magika, onnxruntime) ship data files and models.
-for package in ("markitdown", "magika", "onnxruntime", "pdfminer", "pptx", "docx", "mammoth", "openpyxl"):
+# MarkItDown converters and the libraries they read documents with (data files included).
+# Left out on purpose (tens of MB): Magika + onnxruntime (MarkItDown's file-type sniffing, unused: the type comes
+# from the extension), pandas + numpy (replaced by openpyxl for Excel); see backend/markdown_converter.py.
+for package in ("markitdown", "pdfminer", "pdfplumber", "pptx", "docx", "mammoth", "openpyxl"):
     package_datas, package_binaries, package_hidden = collect_all(package)
     datas += package_datas
     binaries += package_binaries
@@ -53,7 +55,8 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    excludes=["tkinter", "matplotlib", "IPython"],
+    excludes=["tkinter", "matplotlib", "IPython", "magika", "onnxruntime", "pandas", "numpy",
+              "watchfiles", "uvloop", "pypdfium2", "pypdfium2_raw", "yaml"],
 )
 pyz = PYZ(a.pure)
 exe = EXE(
