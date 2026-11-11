@@ -5,6 +5,11 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+### Ajouté
+
+- Schémas Mermaid en mode édition : un clic sur une boîte, une flèche ou un titre de groupe ouvre un champ pour
+  renommer son libellé, sans toucher au code. Le code est mis à jour seulement si le schéma s'affiche encore.
+
 ## [1.2.1] — 2026-11-09
 
 ### Modifié

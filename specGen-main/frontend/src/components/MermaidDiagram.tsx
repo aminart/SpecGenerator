@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { readLabel, renameLabel, type LabelTarget } from "../lib/mermaidLabels";
 
 // Mermaid is heavy: load it only when a diagram is actually displayed.
 let mermaidLoader: Promise<typeof import("mermaid").default> | null = null;
@@ -72,10 +73,46 @@ export async function renderDiagramsForExport(markdown: string): Promise<{ code:
   return diagrams;
 }
 
-export function MermaidDiagram({ code }: { code: string }) {
+/** What was clicked in a drawn diagram: a node, an edge label or a subgraph title. */
+function clickedLabel(svgRoot: HTMLElement, element: Element, renderId: string): { target: LabelTarget; box: Element } | null {
+  const node = element.closest("g.node");
+  if (node?.id.startsWith(`${renderId}-flowchart-`)) {
+    return { target: { kind: "node", id: node.id.slice(renderId.length + "-flowchart-".length).replace(/-\d+$/, "") }, box: node };
+  }
+  const edge = element.closest("g.edgeLabel");
+  if (edge) {
+    const text = edge.textContent?.trim() ?? "";
+    if (!text) return null;
+    const same = [...svgRoot.querySelectorAll("g.edgeLabel")].filter((label) => label.textContent?.trim() === text);
+    return { target: { kind: "edge", text, occurrence: same.indexOf(edge) }, box: edge };
+  }
+  const title = element.closest(".cluster-label");
+  const cluster = title?.closest("g.cluster");
+  if (title && cluster?.id.startsWith(`${renderId}-`)) {
+    return { target: { kind: "subgraph", id: cluster.id.slice(renderId.length + 1) }, box: title };
+  }
+  return null;
+}
+
+interface LabelEditor {
+  target: LabelTarget;
+  value: string;
+  left: number;
+  top: number;
+  error?: string;
+}
+
+/**
+ * A drawn Mermaid diagram. With `onCodeChange`, clicking a box, an edge label or a group
+ * title opens a field to rename it; the code is updated only if it still draws.
+ */
+export function MermaidDiagram({ code, onCodeChange }: { code: string; onCodeChange?: (code: string) => void }) {
   const id = `mermaid-${useId().replace(/:/g, "")}`;
   const [svg, setSvg] = useState("");
   const [error, setError] = useState("");
+  const [editor, setEditor] = useState<LabelEditor | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const drawing = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +138,40 @@ export function MermaidDiagram({ code }: { code: string }) {
     };
   }, [code, id]);
 
+  useEffect(() => setEditor(null), [code]);
+
+  const openEditor = (event: MouseEvent) => {
+    if (!onCodeChange || !drawing.current || !frame.current || !(event.target instanceof Element)) return;
+    const clicked = clickedLabel(drawing.current, event.target, id);
+    const value = clicked && readLabel(code, clicked.target);
+    if (!clicked || value === null) return;
+    const box = clicked.box.getBoundingClientRect();
+    const origin = frame.current.getBoundingClientRect();
+    setEditor({ target: clicked.target, value, left: box.left + box.width / 2 - origin.left, top: box.top + box.height / 2 - origin.top });
+  };
+
+  const applyEditor = async () => {
+    if (!editor || !onCodeChange) return;
+    const next = renameLabel(code, editor.target, editor.value);
+    if (next === null || next === code) {
+      setEditor(null);
+      return;
+    }
+    const problem = await mermaidError(next);
+    if (problem) setEditor({ ...editor, error: "Ce libellé empêche le schéma de s’afficher. Modifiez-le ou appuyez sur Échap." });
+    else onCodeChange(next);
+  };
+
+  const onEditorKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setEditor(null);
+    } else if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void applyEditor();
+    }
+  };
+
   if (error) {
     return (
       <div className="rounded-lg border border-danger-soft bg-danger-soft p-3 text-sm text-danger-text">
@@ -108,6 +179,41 @@ export function MermaidDiagram({ code }: { code: string }) {
       </div>
     );
   }
+  const clickable = onCodeChange
+    ? " [&_.cluster-label]:cursor-pointer [&_.edgeLabel]:cursor-pointer [&_.node]:cursor-pointer [&_.cluster-label:hover]:opacity-60 [&_.edgeLabel:hover]:opacity-60 [&_.node:hover]:opacity-60"
+    : "";
   // Fond papier blanc dans les deux thèmes : le diagramme garde le rendu de ses exports Word et HTML.
-  return <div className="overflow-auto rounded-lg border border-line bg-[#FFFFFF] p-4 [&_svg]:mx-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
+  return (
+    <div ref={frame} className="relative">
+      <div
+        ref={drawing}
+        onClick={openEditor}
+        className={`overflow-auto rounded-lg border border-line bg-[#FFFFFF] p-4 [&_svg]:mx-auto${clickable}`}
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+      {editor && (
+        <div
+          className="absolute z-[6] flex w-64 -translate-x-1/2 -translate-y-1/2 flex-col gap-1.5 rounded-lg border border-line-strong bg-surface p-2 shadow-lg"
+          style={{ left: editor.left, top: editor.top }}
+        >
+          <textarea
+            autoFocus
+            value={editor.value}
+            onChange={(event) => setEditor({ ...editor, value: event.target.value, error: undefined })}
+            onKeyDown={onEditorKey}
+            onBlur={() => void applyEditor()}
+            onFocus={(event) => event.currentTarget.select()}
+            rows={Math.max(2, editor.value.split("\n").length)}
+            aria-label="Libellé du schéma"
+            className="input-area min-h-0 text-sm"
+          />
+          {editor.error ? (
+            <p className="text-xs text-danger-text">{editor.error}</p>
+          ) : (
+            <p className="text-xs text-ink-subtle">Entrée pour valider, Maj+Entrée nouvelle ligne, Échap pour annuler.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
