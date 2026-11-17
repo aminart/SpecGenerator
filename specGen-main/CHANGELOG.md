@@ -5,7 +5,14 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+## [1.3.0] — 2026-11-17
+
 ### Ajouté
+
+- Modèles d'IA de Studio Dock : quand Studio Dock fournit la connexion (Réglages › Modèles d'IA, commune à toutes
+  les apps de la suite, y compris un modèle local d'Ollama), SpecGen l'utilise avec le modèle choisi pour lui.
+  L'écran Paramètres l'affiche en lecture seule ; les paramètres propres à SpecGen sont gardés et reprennent la
+  main si Studio Dock lui laisse sa configuration propre. Un fichier .env reste prioritaire.
 
 - Schémas Mermaid en mode édition : un clic sur une boîte, une flèche ou un titre de groupe ouvre un champ pour
   renommer son libellé, sans toucher au code. Le code est mis à jour seulement si le schéma s'affiche encore.

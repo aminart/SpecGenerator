@@ -106,10 +106,11 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
     return <main className="mx-auto max-w-[760px] px-6 py-12 text-ink-muted">Chargement des paramètres…</main>;
   }
 
+  const fromDock = saved.source === "studiodock";
   const fromEnv = (field: SettingsField) => saved.env_fields.includes(field);
   const form: SettingsForm = { api_base: apiBase, api_key: apiKey, model, timeout: Number(timeout) || 300, generation_log: generationLog };
   const hasKey = apiKey === null ? saved.has_api_key : apiKey.trim().length > 0;
-  const isComplete = Boolean(apiBase.trim()) && hasKey && Boolean(saved.certificate);
+  const isComplete = fromDock || (Boolean(apiBase.trim()) && hasKey && Boolean(saved.certificate));
   const isDirty = apiBase !== saved.api_base || apiKey !== null && (apiKey !== "" || saved.has_api_key) || model !== saved.model || Number(timeout) !== saved.timeout || generationLog !== saved.generation_log;
   const failedField = test && !test.ok ? test.field : null;
   const expiry = expiryStatus(saved.certificate?.expires_at);
@@ -172,6 +173,13 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
         </div>
       )}
 
+      {saved.studiodock_own && (
+        <div className="flex gap-3 rounded-[10px] border border-line bg-surface px-5 py-4 text-[13px] leading-relaxed text-ink-muted">
+          <Info className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
+          <p>Studio Dock laisse à SpecGen sa configuration propre : la connexion ci-dessous est utilisée.</p>
+        </div>
+      )}
+
       {saved.env_fields.length > 0 && (
         <div className="flex gap-3 rounded-[10px] border border-line bg-surface px-5 py-4 text-[13px] leading-relaxed text-ink-muted">
           <Info className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
@@ -186,7 +194,9 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
         <div className="px-6 pb-2 pt-8 sm:px-10">
           <h1 className="text-[30px] font-bold leading-tight text-ink">Paramètres de connexion</h1>
           <p className="mt-2 text-sm leading-normal text-ink-muted">
-            Ces informations sont fournies par votre service informatique. Elles restent enregistrées sur ce poste.
+            {fromDock
+              ? "La connexion et le modèle sont réglés dans Studio Dock, pour toutes les apps de la suite."
+              : "Ces informations sont fournies par votre service informatique. Elles restent enregistrées sur ce poste."}
           </p>
         </div>
 
@@ -222,142 +232,169 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
             </ul>
           )}
 
-          <SettingsField label="URL du service" htmlFor="api-base" hint={fromEnv("api_base") ? envHint : undefined}>
-            <TextInput
-              id="api-base"
-              type="url"
-              value={apiBase}
-              onChange={setApiBase}
-              placeholder="https://llm.mon-entreprise.fr/v1"
-              disabled={fromEnv("api_base")}
-              invalid={failedField === "api_base"}
-            />
-          </SettingsField>
-
-          {apiKey === null ? (
-            <SettingsField
-              label="Clé API"
-              hint={fromEnv("api_key") ? envHint : "Chiffrée avec votre compte Windows : elle n’est jamais réaffichée en clair."}
-            >
-              <div
-                className={`flex min-h-[48px] items-center gap-3 rounded-lg border bg-surface-2 pl-3.5 pr-2 ${
-                  failedField === "api_key" ? "border-[1.5px] border-danger" : "border-line-strong"
-                }`}
-              >
-                <Lock className="h-[18px] w-[18px] text-ink-muted" aria-hidden />
-                <span className="flex-1 text-[15px] tracking-[0.08em] text-ink-body">•••• •••• •••• {saved.api_key_hint}</span>
-                {!fromEnv("api_key") && (
-                  <button
-                    type="button"
-                    onClick={() => setApiKey("")}
-                    className="min-h-[36px] rounded-md border border-line-strong bg-surface px-3 text-[13px] font-medium text-ink hover:bg-surface-3"
-                  >
-                    Modifier
-                  </button>
-                )}
+          {fromDock ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-line-strong bg-surface-2 px-5 py-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-md bg-navy-soft px-2 py-0.5 text-xs font-semibold text-accent-ink">Studio Dock</span>
+                <span className="text-[15px] font-medium text-ink">{saved.studiodock?.name}</span>
               </div>
-            </SettingsField>
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-[13px] sm:grid-cols-[130px_1fr]">
+                <dt className="text-ink-muted">URL du service</dt>
+                <dd className="break-all text-ink-body">{saved.api_base}</dd>
+                <dt className="text-ink-muted">Modèle</dt>
+                <dd className="text-ink-body">{saved.model}</dd>
+                <dt className="text-ink-muted">Clé API</dt>
+                <dd className="text-ink-body">{saved.has_api_key ? `•••• ${saved.api_key_hint}` : "aucune"}</dd>
+                <dt className="text-ink-muted">Certificat</dt>
+                <dd className="text-ink-body">{saved.certificate?.name ?? "aucun"}</dd>
+              </dl>
+              <p className="text-[13px] leading-normal text-ink-muted">
+                {saved.studiodock?.local ? "Modèle local (Ollama) : rien ne sort de ce poste. " : ""}
+                Pour changer de connexion ou de modèle, ouvrez Studio Dock, Réglages › Modèles d’IA. Pour revenir aux paramètres propres à
+                SpecGen, choisissez-y « Configuration propre à SpecGen ».
+              </p>
+            </div>
           ) : (
-            <SettingsField label="Clé API" htmlFor="api-key">
-              <div className="flex gap-2">
+            <>
+              <SettingsField label="URL du service" htmlFor="api-base" hint={fromEnv("api_base") ? envHint : undefined}>
                 <TextInput
-                  id="api-key"
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={setApiKey}
-                  placeholder="Collez votre clé API"
-                  invalid={failedField === "api_key"}
+                  id="api-base"
+                  type="url"
+                  value={apiBase}
+                  onChange={setApiBase}
+                  placeholder="https://llm.mon-entreprise.fr/v1"
+                  disabled={fromEnv("api_base")}
+                  invalid={failedField === "api_base"}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowKey((current) => !current)}
-                  aria-label={showKey ? "Masquer la clé" : "Afficher la clé"}
-                  className="flex min-h-[44px] w-11 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-surface hover:bg-surface-3"
-                >
-                  {showKey ? <EyeOff className="h-[18px] w-[18px] text-ink-muted" /> : <Eye className="h-[18px] w-[18px] text-ink-muted" />}
-                </button>
-              </div>
-              {saved.has_api_key && (
-                <button type="button" className="self-start text-[13px] font-medium text-accent underline" onClick={() => setApiKey(null)}>
-                  Garder la clé enregistrée
-                </button>
-              )}
-            </SettingsField>
-          )}
+              </SettingsField>
 
-          <SettingsField
-            label="Certificat de l’entreprise"
-            hint={
-              fromEnv("ca_bundle")
-                ? envHint
-                : saved.certificate
-                  ? undefined
-                  : "Le fichier est copié dans l’application : vous pouvez ensuite le déplacer ou le supprimer."
-            }
-          >
-            {saved.certificate ? (
-              <div
-                className={`flex items-center gap-3 rounded-lg bg-surface px-3.5 py-3 ${
-                  failedField === "certificate" ? "border-[1.5px] border-danger" : "border border-line-strong"
-                }`}
-              >
-                {failedField === "certificate" || expiry?.tone === "error" ? (
-                  <ShieldAlert className="h-[22px] w-[22px] shrink-0 text-danger-text" strokeWidth={1.8} aria-hidden />
-                ) : (
-                  <ShieldCheck className="h-[22px] w-[22px] shrink-0 text-accent" strokeWidth={1.8} aria-hidden />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{saved.certificate.name}</div>
-                  <div className={`text-xs ${failedField === "certificate" || expiry?.tone === "error" ? "text-danger-text" : expiry?.tone === "warning" ? "text-warning-text" : "text-ink-muted"}`}>
-                    {failedField === "certificate"
-                      ? "Non reconnu par le serveur"
-                      : [saved.certificate.imported_at && `Importé le ${new Date(saved.certificate.imported_at).toLocaleDateString("fr-FR")}`, expiry?.label]
-                          .filter(Boolean)
-                          .join(" · ")}
+              {apiKey === null ? (
+                <SettingsField
+                  label="Clé API"
+                  hint={fromEnv("api_key") ? envHint : "Chiffrée avec votre compte Windows : elle n’est jamais réaffichée en clair."}
+                >
+                  <div
+                    className={`flex min-h-[48px] items-center gap-3 rounded-lg border bg-surface-2 pl-3.5 pr-2 ${
+                      failedField === "api_key" ? "border-[1.5px] border-danger" : "border-line-strong"
+                    }`}
+                  >
+                    <Lock className="h-[18px] w-[18px] text-ink-muted" aria-hidden />
+                    <span className="flex-1 text-[15px] tracking-[0.08em] text-ink-body">•••• •••• •••• {saved.api_key_hint}</span>
+                    {!fromEnv("api_key") && (
+                      <button
+                        type="button"
+                        onClick={() => setApiKey("")}
+                        className="min-h-[36px] rounded-md border border-line-strong bg-surface px-3 text-[13px] font-medium text-ink hover:bg-surface-3"
+                      >
+                        Modifier
+                      </button>
+                    )}
                   </div>
-                </div>
-                {!fromEnv("ca_bundle") && (
+                </SettingsField>
+              ) : (
+                <SettingsField label="Clé API" htmlFor="api-key">
+                  <div className="flex gap-2">
+                    <TextInput
+                      id="api-key"
+                      type={showKey ? "text" : "password"}
+                      value={apiKey}
+                      onChange={setApiKey}
+                      placeholder="Collez votre clé API"
+                      invalid={failedField === "api_key"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((current) => !current)}
+                      aria-label={showKey ? "Masquer la clé" : "Afficher la clé"}
+                      className="flex min-h-[44px] w-11 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-surface hover:bg-surface-3"
+                    >
+                      {showKey ? <EyeOff className="h-[18px] w-[18px] text-ink-muted" /> : <Eye className="h-[18px] w-[18px] text-ink-muted" />}
+                    </button>
+                  </div>
+                  {saved.has_api_key && (
+                    <button type="button" className="self-start text-[13px] font-medium text-accent underline" onClick={() => setApiKey(null)}>
+                      Garder la clé enregistrée
+                    </button>
+                  )}
+                </SettingsField>
+              )}
+
+              <SettingsField
+                label="Certificat de l’entreprise"
+                hint={
+                  fromEnv("ca_bundle")
+                    ? envHint
+                    : saved.certificate
+                      ? undefined
+                      : "Le fichier est copié dans l’application : vous pouvez ensuite le déplacer ou le supprimer."
+                }
+              >
+                {saved.certificate ? (
+                  <div
+                    className={`flex items-center gap-3 rounded-lg bg-surface px-3.5 py-3 ${
+                      failedField === "certificate" ? "border-[1.5px] border-danger" : "border border-line-strong"
+                    }`}
+                  >
+                    {failedField === "certificate" || expiry?.tone === "error" ? (
+                      <ShieldAlert className="h-[22px] w-[22px] shrink-0 text-danger-text" strokeWidth={1.8} aria-hidden />
+                    ) : (
+                      <ShieldCheck className="h-[22px] w-[22px] shrink-0 text-accent" strokeWidth={1.8} aria-hidden />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{saved.certificate.name}</div>
+                      <div className={`text-xs ${failedField === "certificate" || expiry?.tone === "error" ? "text-danger-text" : expiry?.tone === "warning" ? "text-warning-text" : "text-ink-muted"}`}>
+                        {failedField === "certificate"
+                          ? "Non reconnu par le serveur"
+                          : [saved.certificate.imported_at && `Importé le ${new Date(saved.certificate.imported_at).toLocaleDateString("fr-FR")}`, expiry?.label]
+                              .filter(Boolean)
+                              .join(" · ")}
+                      </div>
+                    </div>
+                    {!fromEnv("ca_bundle") && (
+                      <button
+                        type="button"
+                        disabled={busy === "certificate"}
+                        onClick={() => certificateInput.current?.click()}
+                        className="min-h-[36px] rounded-md border border-line-strong bg-surface px-3 text-[13px] font-medium text-ink hover:bg-surface-3"
+                      >
+                        {busy === "certificate" ? "Import…" : "Remplacer"}
+                      </button>
+                    )}
+                  </div>
+                ) : (
                   <button
                     type="button"
                     disabled={busy === "certificate"}
                     onClick={() => certificateInput.current?.click()}
-                    className="min-h-[36px] rounded-md border border-line-strong bg-surface px-3 text-[13px] font-medium text-ink hover:bg-surface-3"
+                    className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-line-dashed text-sm font-medium text-accent hover:border-accent hover:bg-navy-softer"
                   >
-                    {busy === "certificate" ? "Import…" : "Remplacer"}
+                    <Plus className="h-[18px] w-[18px]" aria-hidden />
+                    {busy === "certificate" ? "Import…" : "Choisir le fichier .crt"}
                   </button>
                 )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={busy === "certificate"}
-                onClick={() => certificateInput.current?.click()}
-                className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-line-dashed text-sm font-medium text-accent hover:border-accent hover:bg-navy-softer"
-              >
-                <Plus className="h-[18px] w-[18px]" aria-hidden />
-                {busy === "certificate" ? "Import…" : "Choisir le fichier .crt"}
-              </button>
-            )}
-            <input
-              ref={certificateInput}
-              type="file"
-              accept=".crt"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) handleCertificate(file);
-                event.target.value = "";
-              }}
-            />
-          </SettingsField>
+                <input
+                  ref={certificateInput}
+                  type="file"
+                  accept=".crt"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) handleCertificate(file);
+                    event.target.value = "";
+                  }}
+                />
+              </SettingsField>
+
+            </>
+          )}
 
           <details className="border-t border-line pt-4">
             <summary className="cursor-pointer text-sm font-medium text-ink-muted hover:text-ink">
               Options avancées · modèle {model || "mistral"}, délai {timeout} s{generationLog ? ", journal activé" : ""}
             </summary>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <SettingsField label="Modèle" htmlFor="model" hint={fromEnv("model") ? envHint : undefined}>
-                <TextInput id="model" value={model} onChange={setModel} disabled={fromEnv("model")} />
+              <SettingsField label="Modèle" htmlFor="model" hint={fromDock ? "Choisi dans Studio Dock" : fromEnv("model") ? envHint : undefined}>
+                <TextInput id="model" value={model} onChange={setModel} disabled={fromDock || fromEnv("model")} />
               </SettingsField>
               <SettingsField label="Délai maximal (secondes)" htmlFor="timeout" hint={fromEnv("timeout") ? envHint : undefined}>
                 <TextInput id="timeout" type="number" value={timeout} onChange={setTimeoutValue} disabled={fromEnv("timeout")} />
@@ -394,7 +431,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
         </div>
 
         <div className="flex flex-wrap items-center gap-3 rounded-b-xl border-t border-line bg-surface-2 px-6 py-5 sm:px-10">
-          {saved.configured && !isDirty ? (
+          {saved.configured && !isDirty && !fromDock ? (
             <>
               <button type="button" onClick={handleClear} disabled={busy !== null} className="min-h-[44px] px-1 text-sm font-medium text-danger-text underline">
                 Effacer les paramètres

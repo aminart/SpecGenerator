@@ -187,7 +187,8 @@ def run_capability_checks(candidate: Any) -> list[dict[str, Any]]:
 def test_connection(payload: SettingsPayload) -> dict[str, Any]:
     """Tests the values typed in the form (not yet saved) with the stored certificate."""
     settings = get_effective_settings()
-    candidate = replace(
+    # Connection provided by Studio Dock: tested as is (the form only shows it)
+    candidate = settings if settings.source == "studiodock" else replace(
         settings,
         api_base=settings.api_base if "api_base" in settings.env_fields else payload.api_base.strip(),
         api_key=settings.api_key if payload.api_key is None or "api_key" in settings.env_fields else payload.api_key.strip(),
