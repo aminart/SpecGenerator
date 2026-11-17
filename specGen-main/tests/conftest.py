@@ -17,6 +17,8 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 # Isolate the tests from the settings and .env of the machine, before importing the app.
 os.environ["SPECGEN_CONFIG_DIR"] = tempfile.mkdtemp(prefix="specgen-tests-")
+# Models set in Studio Dock: a temporary folder, never those of the machine.
+os.environ["STUDIODOCK_IA"] = tempfile.mkdtemp(prefix="specgen-studiodock-tests-")
 for variable in list(os.environ):
     if variable.startswith("CUSTOM_"):
         del os.environ[variable]

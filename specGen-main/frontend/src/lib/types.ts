@@ -44,6 +44,11 @@ export interface ConnectionTest {
 }
 
 export interface ConnectionSettings {
+  /** studiodock : connexion et modèle fournis par Studio Dock (Réglages › Modèles d'IA), communs à la suite. */
+  source: "app" | "studiodock";
+  studiodock: { name: string; local: boolean } | null;
+  /** Studio Dock laisse à SpecGen sa configuration propre. */
+  studiodock_own: boolean;
   configured: boolean;
   missing: string[];
   env_fields: SettingsField[];
@@ -108,4 +113,15 @@ export interface SpecResult {
   /** Language of the document shown: it changes when the document is translated. */
   language?: Language;
   translatedAt?: string;
+}
+
+/** Models set in Studio Dock, offered when launching a generation. */
+export interface ModelOptions {
+  available: boolean;
+  /** Model used when none is picked: the one of the settings, else the one Studio Dock gives SpecGen. */
+  default: string | null;
+  /** Default chosen in SpecGen's settings (null: the one of Studio Dock). */
+  saved_default: string | null;
+  studiodock_default: string | null;
+  options: { id: string; model: string; connection: string; local: boolean }[];
 }

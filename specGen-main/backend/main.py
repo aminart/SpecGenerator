@@ -50,6 +50,7 @@ from markdown_converter import SUPPORTED_EXTENSIONS, convert_to_markdown
 from mermaid_generator import generate_mermaid_flow_from_context
 from app_info import APP_ID, APP_NAME, VERSION
 from app_paths import frontend_dist_dir
+import settings_store
 from openai_client import get_missing_settings, get_model_name, is_custom_configured
 from settings_api import router as settings_router
 from spec_generator import generate_spec
@@ -63,6 +64,24 @@ DetailLevel = Literal["compact", "standard", "detailed"]
 
 app = FastAPI(title="Spec Generator API", version=VERSION)
 app.include_router(settings_router)
+
+
+class ModelChoiceMiddleware:
+    """Model picked at launch time (header X-StudioDock-Model: "<connection id>|<model>" among the Studio Dock models):
+    every call to the AI made while handling the request uses it. Pure ASGI, so the choice reaches the endpoint."""
+
+    def __init__(self, app_: Any) -> None:
+        self.app = app_
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        key = dict(scope.get("headers") or []).get(b"x-studiodock-model", b"").decode("utf-8", "replace").strip()
+        with settings_store.use_model(key or None):
+            await self.app(scope, receive, send)
+
+
+app.add_middleware(ModelChoiceMiddleware)
 
 
 class SourceFile(BaseModel):

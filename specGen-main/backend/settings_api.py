@@ -20,7 +20,9 @@ from settings_store import (
     DEFAULT_TIMEOUT_SECONDS,
     clear_settings,
     get_effective_settings,
+    model_options,
     public_settings,
+    save_default_model,
     save_settings,
     save_test_result,
     store_certificate,
@@ -49,6 +51,25 @@ def read_settings() -> dict[str, Any]:
 def update_settings(payload: SettingsPayload) -> dict[str, Any]:
     save_settings(payload.api_base, payload.api_key, payload.model, payload.timeout, payload.generation_log)
     return public_settings()
+
+
+class DefaultModelPayload(BaseModel):
+    # "<connection id>|<model>" among the Studio Dock models; None: the one Studio Dock gives SpecGen
+    model: str | None = None
+
+
+@router.get("/models")
+def list_models() -> dict[str, Any]:
+    return model_options()
+
+
+@router.put("/models")
+def set_default_model(payload: DefaultModelPayload) -> dict[str, Any]:
+    try:
+        save_default_model(payload.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return model_options()
 
 
 @router.delete("")
@@ -187,7 +208,8 @@ def run_capability_checks(candidate: Any) -> list[dict[str, Any]]:
 def test_connection(payload: SettingsPayload) -> dict[str, Any]:
     """Tests the values typed in the form (not yet saved) with the stored certificate."""
     settings = get_effective_settings()
-    candidate = replace(
+    # Connection provided by Studio Dock: tested as is (the form only shows it)
+    candidate = settings if settings.source == "studiodock" else replace(
         settings,
         api_base=settings.api_base if "api_base" in settings.env_fields else payload.api_base.strip(),
         api_key=settings.api_key if payload.api_key is None or "api_key" in settings.env_fields else payload.api_key.strip(),

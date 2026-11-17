@@ -1,5 +1,8 @@
 """Connection settings: saved from the app, overridable by a .env file next to the app.
 
+Studio Dock (Réglages › Modèles d'IA) can provide the connection and model for SpecGen, shared by all the apps of
+the suite: read with studiodock_ia.py. Order: .env (deployment) > Studio Dock > settings saved in this app.
+
 The API key is encrypted with the Windows user account (DPAPI) before being
 written to disk; it is never sent back to the frontend in clear.
 """
@@ -9,6 +12,8 @@ import base64
 import json
 import os
 import sys
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +23,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding
 from dotenv import load_dotenv
 
+import studiodock_ia
 from app_paths import config_dir, env_file
 
 DEFAULT_MODEL = "mistral"
@@ -33,6 +39,9 @@ ENV_VARIABLES = {
     "timeout": "CUSTOM_TIMEOUT_SECONDS",
 }
 REQUIRED_FIELDS = {"api_base": "URL du service", "api_key": "Clé API", "ca_bundle": "Certificat de l’entreprise"}
+STUDIODOCK_APP_ID = "specgen"  # SpecGen's id in the Studio Dock catalogue
+# Variables that, when set, make the .env the source of the connection (Studio Dock is then ignored)
+CONNECTION_VARIABLES = ("CUSTOM_API_BASE", "CUSTOM_API_KEY", "CUSTOM_MODEL")
 
 load_dotenv(env_file())
 
@@ -45,9 +54,14 @@ class EffectiveSettings:
     model: str
     timeout: float
     env_fields: list[str]
+    source: str = "app"  # "app" (this screen and .env) or "studiodock"
+    studiodock_name: str = ""  # Studio Dock: name of the connection
 
     @property
     def missing(self) -> list[str]:
+        if self.source == "studiodock":
+            # Studio Dock already tested its connection: key and certificate depend on the service (none for Ollama)
+            return [] if self.api_base else [REQUIRED_FIELDS["api_base"]]
         return [label for field, label in REQUIRED_FIELDS.items() if not getattr(self, field)]
 
     @property
@@ -135,6 +149,11 @@ def saved_api_key() -> str:
 
 def save_settings(api_base: str, api_key: str | None, model: str, timeout: float, generation_log: bool = False) -> None:
     data = load_saved()
+    if studiodock_choice() is not None:
+        # Connection provided by Studio Dock: only the options of this screen are saved
+        data.update({"timeout": timeout, "generation_log": generation_log})
+        _write_saved(data)
+        return
     data.update(
         {
             "api_base": api_base.strip(),
@@ -148,9 +167,23 @@ def save_settings(api_base: str, api_key: str | None, model: str, timeout: float
     _write_saved(data)
 
 
+def _studiodock_key(effective: EffectiveSettings) -> str:
+    return f"{effective.api_base}|{effective.model}"
+
+
+def _studiodock_test(saved: dict[str, Any], effective: EffectiveSettings) -> dict[str, Any] | None:
+    test = saved.get("studiodock_test")
+    return test.get("result") if isinstance(test, dict) and test.get("key") == _studiodock_key(effective) else None
+
+
 def save_test_result(result: dict[str, Any]) -> None:
     data = load_saved()
-    data["last_test"] = result
+    effective = get_effective_settings()
+    if effective.source == "studiodock":
+        # Kept apart: the test of this screen's own connection stays valid for later
+        data["studiodock_test"] = {"key": _studiodock_key(effective), "result": result}
+    else:
+        data["last_test"] = result
     _write_saved(data)
 
 
@@ -186,8 +219,92 @@ def store_certificate(filename: str, content: bytes) -> dict[str, Any]:
 # --- Effective settings (.env first, then saved) -------------------------------
 
 
+# Model picked for one generation ("<connection id>|<model>"), set from the X-StudioDock-Model header (main.py)
+_requested_model: ContextVar[str | None] = ContextVar("requested_model", default=None)
+
+
+@contextmanager
+def use_model(key: str | None):
+    """Generations inside this block use this Studio Dock model (if it still exists)."""
+    token = _requested_model.set(key or None)
+    try:
+        yield
+    finally:
+        _requested_model.reset(token)
+
+
+def model_key(choice: studiodock_ia.Choix) -> str:
+    return f"{choice.connexion.id}|{choice.model}"
+
+
+def studiodock_options() -> list[studiodock_ia.Choix]:
+    """Every model set in Studio Dock, unless the .env provides the connection or Studio Dock leaves SpecGen its own
+    configuration."""
+    if any(os.getenv(variable) for variable in CONNECTION_VARIABLES) or studiodock_ia.garde_sa_configuration(STUDIODOCK_APP_ID):
+        return []
+    return [studiodock_ia.Choix(c, model) for c in studiodock_ia.connexions() for model in c.models]
+
+
+def _find(options: list[studiodock_ia.Choix], key: Any) -> studiodock_ia.Choix | None:
+    return next((o for o in options if model_key(o) == key), None) if key else None
+
+
+def studiodock_default(options: list[studiodock_ia.Choix] | None = None) -> studiodock_ia.Choix | None:
+    """Default model: the one chosen in this app's settings, else the one Studio Dock gives SpecGen."""
+    options = studiodock_options() if options is None else options
+    if not options:
+        return None
+    return _find(options, load_saved().get("studiodock_model")) or studiodock_ia.pour_app(STUDIODOCK_APP_ID) or options[0]
+
+
+def studiodock_choice() -> studiodock_ia.Choix | None:
+    """Model used now: the one picked for this generation, else the default one (None: no Studio Dock model)."""
+    options = studiodock_options()
+    return _find(options, _requested_model.get()) or studiodock_default(options)
+
+
+def save_default_model(key: str | None) -> None:
+    """Default model among those of Studio Dock (None: the one Studio Dock gives SpecGen)."""
+    if key and not _find(studiodock_options(), key):
+        raise ValueError("Ce modèle n’est plus proposé par Studio Dock.")
+    data = load_saved()
+    data["studiodock_model"] = key or None
+    _write_saved(data)
+
+
+def model_options() -> dict[str, Any]:
+    """Models offered when launching a generation, with the default one."""
+    options = studiodock_options()
+    default = studiodock_default(options)
+    given = studiodock_ia.pour_app(STUDIODOCK_APP_ID)
+    return {
+        "available": bool(options),
+        "default": model_key(default) if default else None,
+        "saved_default": load_saved().get("studiodock_model") if _find(options, load_saved().get("studiodock_model")) else None,
+        "studiodock_default": model_key(given) if given else None,
+        "options": [{"id": model_key(o), "model": o.model, "connection": o.connexion.name, "local": o.connexion.local}
+                    for o in options],
+    }
+
+
+def _timeout(saved: dict[str, Any]) -> float:
+    value = os.getenv(ENV_VARIABLES["timeout"]) or saved.get("timeout")
+    try:
+        return float(value) if value else DEFAULT_TIMEOUT_SECONDS
+    except ValueError:
+        return DEFAULT_TIMEOUT_SECONDS
+
+
 def get_effective_settings() -> EffectiveSettings:
     saved = load_saved()
+    choice = studiodock_choice()
+    if choice is not None:
+        connection = choice.connexion
+        return EffectiveSettings(
+            api_base=connection.api_base, api_key=connection.api_key, ca_bundle=connection.ca_bundle, model=choice.model,
+            timeout=_timeout(saved), env_fields=["timeout"] if os.getenv(ENV_VARIABLES["timeout"]) else [],
+            source="studiodock", studiodock_name=connection.name,
+        )
     env_fields = [field for field, variable in ENV_VARIABLES.items() if os.getenv(variable)]
 
     def pick(field: str, saved_value: Any) -> Any:
@@ -214,7 +331,13 @@ def public_settings() -> dict[str, Any]:
     """What the settings screen may show: never the API key itself."""
     saved = load_saved()
     effective = get_effective_settings()
+    from_dock = effective.source == "studiodock"
     return {
+        # Connection provided by Studio Dock: shown read-only, the fields of this screen are kept for later
+        "source": effective.source,
+        "studiodock": {"name": effective.studiodock_name, "local": effective.api_base.startswith(("http://localhost", "http://127.0.0.1"))}
+        if from_dock else None,
+        "studiodock_own": studiodock_ia.garde_sa_configuration(STUDIODOCK_APP_ID),
         "configured": effective.configured,
         "missing": effective.missing,
         "env_fields": effective.env_fields,
@@ -223,10 +346,12 @@ def public_settings() -> dict[str, Any]:
         "api_base": effective.api_base,
         "has_api_key": bool(effective.api_key),
         "api_key_hint": effective.api_key[-4:] if len(effective.api_key) >= 8 else "",
-        "certificate": saved.get("certificate") if "ca_bundle" not in effective.env_fields else {"name": Path(effective.ca_bundle).name},
+        "certificate": {"name": Path(effective.ca_bundle).name} if from_dock and effective.ca_bundle
+        else None if from_dock
+        else saved.get("certificate") if "ca_bundle" not in effective.env_fields else {"name": Path(effective.ca_bundle).name},
         "model": effective.model,
         "timeout": effective.timeout,
-        "last_test": saved.get("last_test"),
+        "last_test": _studiodock_test(saved, effective) if from_dock else saved.get("last_test"),
         # Journal of the generations (see generation_log.py); CUSTOM_GENERATION_LOG overrides it.
         "generation_log": (
             os.getenv("CUSTOM_GENERATION_LOG", "").strip().lower() in ("1", "true", "yes", "oui")
