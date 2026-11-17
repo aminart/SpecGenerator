@@ -13,6 +13,8 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
   les apps de la suite, y compris un modèle local d'Ollama), SpecGen l'utilise avec le modèle choisi pour lui.
   L'écran Paramètres l'affiche en lecture seule ; les paramètres propres à SpecGen sont gardés et reprennent la
   main si Studio Dock lui laisse sa configuration propre. Un fichier .env reste prioritaire.
+- Choix du modèle parmi ceux de Studio Dock : champ « Modèle d'IA » dans « Créer un contexte » et « Générer une
+  spécification », valable pour la session (traductions et schémas compris) ; modèle par défaut dans Paramètres.
 
 - Schémas Mermaid en mode édition : un clic sur une boîte, une flèche ou un titre de groupe ouvre un champ pour
   renommer son libellé, sans toucher au code. Le code est mis à jour seulement si le schéma s'affiche encore.

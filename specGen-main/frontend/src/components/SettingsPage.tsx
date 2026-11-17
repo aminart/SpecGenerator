@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AlertCircle, ArrowRight, Check, Eye, EyeOff, Info, Lock, Plus, ShieldAlert, ShieldCheck } from "lucide-react";
 import { api } from "../lib/api";
 import { formatDateTime } from "../lib/files";
-import type { ConnectionSettings, ConnectionTest, SettingsField, SettingsForm } from "../lib/types";
+import type { ConnectionSettings, ConnectionTest, ModelOptions, SettingsField, SettingsForm } from "../lib/types";
+import { ModelOptionGroups } from "./ModelField";
 import { useToast } from "./Toasts";
 
 const EXPIRY_WARNING_DAYS = 30;
@@ -69,6 +70,7 @@ function expiryStatus(expiresAt: string | undefined): { label: string; tone: "mu
 export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: ConnectionSettings, firstSetup: boolean) => void; onLater: () => void }) {
   const toast = useToast();
   const [saved, setSaved] = useState<ConnectionSettings | null>(null);
+  const [models, setModels] = useState<ModelOptions | null>(null);
   const [apiBase, setApiBase] = useState("");
   // null = keep the stored key.
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -93,6 +95,10 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
   };
 
   useEffect(() => {
+    api.models().then(setModels).catch(() => setModels(null));
+  }, []);
+
+  useEffect(() => {
     api
       .settings()
       .then((settings) => {
@@ -107,6 +113,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
   }
 
   const fromDock = saved.source === "studiodock";
+  const studioDockLabel = models?.options.find((o) => o.id === models.studiodock_default)?.model;
   const fromEnv = (field: SettingsField) => saved.env_fields.includes(field);
   const form: SettingsForm = { api_base: apiBase, api_key: apiKey, model, timeout: Number(timeout) || 300, generation_log: generationLog };
   const hasKey = apiKey === null ? saved.has_api_key : apiKey.trim().length > 0;
@@ -131,6 +138,15 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
       const settings = await api.uploadCertificate(file);
       setSaved(settings);
       setTest(null);
+    });
+
+  const handleDefaultModel = (model: string | null) =>
+    run("save", async () => {
+      setModels(await api.setDefaultModel(model));
+      const settings = await api.settings();
+      applySaved(settings);
+      onSaved(settings, false);
+      toast("success", "Modèle par défaut enregistré.");
     });
 
   const handleTest = () => run("test", async () => setTest(await api.testSettings(form)));
@@ -241,16 +257,32 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
               <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-[13px] sm:grid-cols-[130px_1fr]">
                 <dt className="text-ink-muted">URL du service</dt>
                 <dd className="break-all text-ink-body">{saved.api_base}</dd>
-                <dt className="text-ink-muted">Modèle</dt>
-                <dd className="text-ink-body">{saved.model}</dd>
                 <dt className="text-ink-muted">Clé API</dt>
                 <dd className="text-ink-body">{saved.has_api_key ? `•••• ${saved.api_key_hint}` : "aucune"}</dd>
                 <dt className="text-ink-muted">Certificat</dt>
                 <dd className="text-ink-body">{saved.certificate?.name ?? "aucun"}</dd>
               </dl>
+              {models && models.options.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="default-model" className="text-[13px] font-medium text-ink">Modèle par défaut</label>
+                  <select
+                    id="default-model"
+                    value={models.saved_default ?? ""}
+                    disabled={busy !== null}
+                    onChange={(event) => handleDefaultModel(event.target.value || null)}
+                    className="min-h-[44px] w-full rounded-lg border border-line-strong bg-surface px-3 text-[15px] text-ink focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-navy-soft"
+                  >
+                    <option value="">Celui choisi dans Studio Dock{studioDockLabel ? ` (${studioDockLabel})` : ""}</option>
+                    <ModelOptionGroups options={models} />
+                  </select>
+                  <span className="text-[13px] text-ink-muted">
+                    Utilisé pour chaque génération ; un autre modèle peut être choisi au moment de lancer la génération.
+                  </span>
+                </div>
+              )}
               <p className="text-[13px] leading-normal text-ink-muted">
                 {saved.studiodock?.local ? "Modèle local (Ollama) : rien ne sort de ce poste. " : ""}
-                Pour changer de connexion ou de modèle, ouvrez Studio Dock, Réglages › Modèles d’IA. Pour revenir aux paramètres propres à
+                Les connexions et leurs modèles se règlent dans Studio Dock, Réglages › Modèles d’IA. Pour revenir aux paramètres propres à
                 SpecGen, choisissez-y « Configuration propre à SpecGen ».
               </p>
             </div>

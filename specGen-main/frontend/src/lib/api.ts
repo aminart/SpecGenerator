@@ -1,4 +1,5 @@
-import type { ConnectionSettings, ConnectionTest, ContextResult, DocKind, Health, Language, MarkdownDoc, SettingsForm, SpecResult } from "./types";
+import { pickedModel } from "./modelChoice";
+import type { ConnectionSettings, ModelOptions, ConnectionTest, ContextResult, DocKind, Health, Language, MarkdownDoc, SettingsForm, SpecResult } from "./types";
 
 async function parseError(response: Response): Promise<Error> {
   let detail = `Erreur ${response.status}`;
@@ -12,9 +13,13 @@ async function parseError(response: Response): Promise<Error> {
 }
 
 async function request<T>(path: string, body?: unknown, method?: string): Promise<T> {
+  const headers: Record<string, string> = body === undefined ? {} : { "Content-Type": "application/json" };
+  const model = pickedModel();
+  // Model picked at launch time (Studio Dock models); the settings screen always shows the default one
+  if (model && !path.startsWith("/api/settings")) headers["X-StudioDock-Model"] = model;
   const response = await fetch(path, {
     method: method ?? (body === undefined ? "GET" : "POST"),
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) throw await parseError(response);
@@ -44,6 +49,8 @@ export const api = {
       target_language,
     }),
   settings: () => request<ConnectionSettings>("/api/settings"),
+  models: () => request<ModelOptions>("/api/settings/models"),
+  setDefaultModel: (model: string | null) => request<ModelOptions>("/api/settings/models", { model }, "PUT"),
   saveSettings: (form: SettingsForm) => request<ConnectionSettings>("/api/settings", form, "PUT"),
   clearSettings: () => request<ConnectionSettings>("/api/settings", undefined, "DELETE"),
   testSettings: (form: SettingsForm) => request<ConnectionTest>("/api/settings/test", form),

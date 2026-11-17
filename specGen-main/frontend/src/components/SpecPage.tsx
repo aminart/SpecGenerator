@@ -3,6 +3,7 @@ import { FileText, Layers, Monitor } from "lucide-react";
 import { api } from "../lib/api";
 import { documentTitle, formatSize, readImageFile, readJsonFile, readTextFile } from "../lib/files";
 import type { FeatureImage, Language, LoadedFile, SpecResult } from "../lib/types";
+import { ModelField } from "./ModelField";
 import { AddFileButton, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { DocumentView, EditToggle } from "./DocumentEditor";
@@ -178,6 +179,8 @@ export function SpecPage({
           <ComponentLibraryField file={componentLibrary} onChange={onComponentLibraryChange} sharedWith="Créer un contexte" />
 
           <LanguageField value={state.language} onChange={(language) => update({ language })} />
+
+          <ModelField />
         </>
       }
       footer={

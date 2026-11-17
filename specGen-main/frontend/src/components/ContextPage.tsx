@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { hasMermaidBlock, insertFlowDiagram } from "../lib/flow";
 import { documentTitle, formatSize, readJsonFile, readTextFile } from "../lib/files";
 import type { ContextResult, Language, LoadedFile } from "../lib/types";
+import { ModelField } from "./ModelField";
 import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { DocumentView, EditToggle } from "./DocumentEditor";
@@ -146,6 +147,8 @@ export function ContextPage({
           <ComponentLibraryField file={componentLibrary} onChange={onComponentLibraryChange} sharedWith="Générer une spécification" />
 
           <LanguageField value={state.language} onChange={(language) => update({ language })} />
+
+          <ModelField />
         </>
       }
       footer={

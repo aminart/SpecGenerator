@@ -12,6 +12,8 @@ import base64
 import json
 import os
 import sys
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -217,11 +219,72 @@ def store_certificate(filename: str, content: bytes) -> dict[str, Any]:
 # --- Effective settings (.env first, then saved) -------------------------------
 
 
-def studiodock_choice() -> studiodock_ia.Choix | None:
-    """Connection and model chosen for SpecGen in Studio Dock, unless the .env provides the connection."""
-    if any(os.getenv(variable) for variable in CONNECTION_VARIABLES):
+# Model picked for one generation ("<connection id>|<model>"), set from the X-StudioDock-Model header (main.py)
+_requested_model: ContextVar[str | None] = ContextVar("requested_model", default=None)
+
+
+@contextmanager
+def use_model(key: str | None):
+    """Generations inside this block use this Studio Dock model (if it still exists)."""
+    token = _requested_model.set(key or None)
+    try:
+        yield
+    finally:
+        _requested_model.reset(token)
+
+
+def model_key(choice: studiodock_ia.Choix) -> str:
+    return f"{choice.connexion.id}|{choice.model}"
+
+
+def studiodock_options() -> list[studiodock_ia.Choix]:
+    """Every model set in Studio Dock, unless the .env provides the connection or Studio Dock leaves SpecGen its own
+    configuration."""
+    if any(os.getenv(variable) for variable in CONNECTION_VARIABLES) or studiodock_ia.garde_sa_configuration(STUDIODOCK_APP_ID):
+        return []
+    return [studiodock_ia.Choix(c, model) for c in studiodock_ia.connexions() for model in c.models]
+
+
+def _find(options: list[studiodock_ia.Choix], key: Any) -> studiodock_ia.Choix | None:
+    return next((o for o in options if model_key(o) == key), None) if key else None
+
+
+def studiodock_default(options: list[studiodock_ia.Choix] | None = None) -> studiodock_ia.Choix | None:
+    """Default model: the one chosen in this app's settings, else the one Studio Dock gives SpecGen."""
+    options = studiodock_options() if options is None else options
+    if not options:
         return None
-    return studiodock_ia.pour_app(STUDIODOCK_APP_ID)
+    return _find(options, load_saved().get("studiodock_model")) or studiodock_ia.pour_app(STUDIODOCK_APP_ID) or options[0]
+
+
+def studiodock_choice() -> studiodock_ia.Choix | None:
+    """Model used now: the one picked for this generation, else the default one (None: no Studio Dock model)."""
+    options = studiodock_options()
+    return _find(options, _requested_model.get()) or studiodock_default(options)
+
+
+def save_default_model(key: str | None) -> None:
+    """Default model among those of Studio Dock (None: the one Studio Dock gives SpecGen)."""
+    if key and not _find(studiodock_options(), key):
+        raise ValueError("Ce modèle n’est plus proposé par Studio Dock.")
+    data = load_saved()
+    data["studiodock_model"] = key or None
+    _write_saved(data)
+
+
+def model_options() -> dict[str, Any]:
+    """Models offered when launching a generation, with the default one."""
+    options = studiodock_options()
+    default = studiodock_default(options)
+    given = studiodock_ia.pour_app(STUDIODOCK_APP_ID)
+    return {
+        "available": bool(options),
+        "default": model_key(default) if default else None,
+        "saved_default": load_saved().get("studiodock_model") if _find(options, load_saved().get("studiodock_model")) else None,
+        "studiodock_default": model_key(given) if given else None,
+        "options": [{"id": model_key(o), "model": o.model, "connection": o.connexion.name, "local": o.connexion.local}
+                    for o in options],
+    }
 
 
 def _timeout(saved: dict[str, Any]) -> float:

@@ -93,3 +93,34 @@ def test_connection_test_uses_studio_dock(client, monkeypatch):
     assert result["ok"] and seen["model"] == "mistral-small" and seen["base"] == "https://llm.interne/v1"
     assert client.get("/api/settings").json()["last_test"]["ok"]
     assert settings_store.load_saved().get("last_test") is None  # the own test is left untouched
+
+
+def test_model_picked_at_launch_and_default_in_settings(client, fake_llm, login_screen):
+    write({"connection": "sd1", "model": "mistral-small"})
+    options = client.get("/api/settings/models").json()
+    assert options["available"] and options["default"] == "sd1|mistral-small"
+    assert [o["id"] for o in options["options"]] == ["sd1|mistral-large", "sd1|mistral-small", "sd2|qwen3:8b"]
+
+    # Default chosen in SpecGen's settings, then back to the one of Studio Dock
+    assert client.put("/api/settings/models", json={"model": "sd2|qwen3:8b"}).json()["default"] == "sd2|qwen3:8b"
+    assert settings_store.get_effective_settings().api_base == "http://localhost:11434/v1"
+    assert client.put("/api/settings/models", json={"model": "sd9|absent"}).status_code == 422
+    client.put("/api/settings/models", json={"model": "sd2|qwen3:8b"})
+
+    # One generation with another model: the header reaches every call to the AI
+    from conftest import GOOD_SPEC_FR
+
+    fake_llm.queue(GOOD_SPEC_FR)
+    r = client.post("/api/spec/generate", json={"spec_json": login_screen, "business_context": ""},
+                    headers={"X-StudioDock-Model": "sd1|mistral-large"})
+    assert r.status_code == 200, r.text
+    assert {call["model"] for call in fake_llm.calls} == {"mistral-large"}
+    # Without the header: the default model again
+    assert settings_store.get_effective_settings().model == "qwen3:8b"
+    client.put("/api/settings/models", json={"model": None})
+    assert settings_store.get_effective_settings().model == "mistral-small"
+
+
+def test_no_choice_without_studio_dock(client):
+    assert client.get("/api/settings/models").json() == {
+        "available": False, "default": None, "saved_default": None, "studiodock_default": None, "options": []}

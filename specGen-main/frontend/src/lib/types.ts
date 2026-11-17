@@ -114,3 +114,14 @@ export interface SpecResult {
   language?: Language;
   translatedAt?: string;
 }
+
+/** Models set in Studio Dock, offered when launching a generation. */
+export interface ModelOptions {
+  available: boolean;
+  /** Model used when none is picked: the one of the settings, else the one Studio Dock gives SpecGen. */
+  default: string | null;
+  /** Default chosen in SpecGen's settings (null: the one of Studio Dock). */
+  saved_default: string | null;
+  studiodock_default: string | null;
+  options: { id: string; model: string; connection: string; local: boolean }[];
+}
