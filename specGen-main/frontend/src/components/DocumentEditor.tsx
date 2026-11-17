@@ -348,7 +348,14 @@ function CodeBlock(props: BlockProps) {
     <BlockFrame {...props}>
       {isMermaid ? (
         <div className="not-prose my-4 flex flex-col gap-2">
-          <MermaidDiagram code={code} />
+          <MermaidDiagram
+            code={code}
+            onCodeChange={(next) => {
+              setCode(next);
+              onCommit(fenced(next, block.lang));
+            }}
+          />
+          <p className="text-[13px] text-ink-subtle">Cliquez sur une boîte, une flèche ou un titre de groupe pour renommer son libellé.</p>
           <details>
             <summary className="cursor-pointer text-sm font-medium text-ink-muted hover:text-ink">Modifier le code du diagramme</summary>
             <div className="mt-2">{editor}</div>
