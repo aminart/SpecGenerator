@@ -72,7 +72,7 @@ export function HomePage({ onNavigate, onReset, canReset }: { onNavigate: (page:
             <button
               type="button"
               onClick={() => onNavigate(card.page)}
-              className={`nn-btn ${card.page === "context" ? "nn-btn-primary" : "nn-btn-secondary"} text-[15px]`}
+              className="nn-btn nn-btn-secondary text-[15px]"
             >
               Commencer
             </button>
