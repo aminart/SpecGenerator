@@ -5,6 +5,8 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+## [1.4.0] — 2026-11-19
+
 ### Modifié
 
 - Régénérer un contexte ou une spécification modifié ou traduit demande d'abord confirmation. La version
