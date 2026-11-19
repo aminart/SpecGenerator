@@ -101,3 +101,21 @@ export function removeHtmlBreaks(markdown: string, language: "fr" | "en" = "fr")
 export function cleanGeneratedMarkdown(markdown: string, language: "fr" | "en" = "fr"): string {
   return removeHtmlBreaks(unwrapMarkdownFence(markdown), language);
 }
+
+/** Short fingerprint of a text, to tell whether it changed. */
+export function textHash(text: string): string {
+  let value = 5381;
+  for (let index = 0; index < text.length; index++) value = (value * 33) ^ text.charCodeAt(index);
+  return (value >>> 0).toString(36);
+}
+
+/** Heading text compared loosely: no numbering, case, accents or punctuation. */
+export function headingKey(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/^[\s\d.)]+/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}

@@ -5,6 +5,35 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+### Modifié
+
+- Régénérer un contexte ou une spécification modifié ou traduit demande d'abord confirmation. La version
+  remplacée reste disponible : « Restaurer la version précédente », sous le titre du document, permet de
+  passer de l'une à l'autre.
+- Une génération continue quand on change d'onglet : l'onglet affiche une roue tant qu'elle tourne, et la page
+  montre de nouveau l'attente quand on y revient (plus de second lancement possible par erreur).
+- L'attente pendant une génération ne simule plus l'avancement d'étapes, qui restait bloqué sur la dernière
+  pendant plusieurs minutes : elle affiche le temps écoulé et la liste de ce que fait SpecGen.
+- « Image de la feature » devient « Image d'illustration », avec la précision qu'elle est insérée dans le
+  document et les exports mais n'est pas lue par l'IA.
+- « Générer une spécification » prévient, sous le bouton, quand aucun contexte projet n'est fourni.
+- La spécification signale quand le contexte projet a changé depuis sa génération (nouvelle génération,
+  modification, traduction ou autre fichier importé), avec un bouton « Régénérer ».
+- Traduire garde la version d'origine : un sélecteur Français / English permet de passer d'une version à
+  l'autre, chacune avec ses propres modifications. « Retraduire » remplace la version de l'autre langue.
+- Un seul bouton « Exporter » ouvre le choix du format (Word, Markdown, page web) ; en mode édition,
+  « Terminer » n'est plus un second bouton plein à côté.
+- « Points à vérifier » : chaque point mène à la section concernée (« Voir la section ») et peut être marqué
+  « Traité » ; les points traités se réaffichent d'un clic.
+- Les fichiers ajoutés sur « Convertir en Markdown » et pas encore convertis restent dans la liste quand on
+  change d'onglet, et une conversion en cours continue (roue sur l'onglet).
+
+### Corrigé
+
+- Quand le bandeau « Génération désactivée » est affiché, le bas de la colonne des sources (bouton de
+  génération et message) n'est plus coupé.
+- En mode édition, la barre d'aide reste visible sous l'en-tête au lieu de passer derrière.
+
 ## [1.3.0] — 2026-11-17
 
 ### Ajouté

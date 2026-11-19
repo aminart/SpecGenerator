@@ -4,6 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hauteur de la barre d’application et du bandeau d’avertissement, mesurée par App.tsx. */
+:root {
+  --chrome-h: 64px;
+}
+
 @layer components {
   .field-label {
     @apply text-[15px] font-medium text-ink;

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { AlertCircle, ArrowRight, Check, Copy, Download, FileText, FileUp } from "lucide-react";
 import { api, downloadMarkdownBundle, downloadText } from "../lib/api";
 import { formatDateTime, formatSize } from "../lib/files";
@@ -16,7 +16,8 @@ export interface MarkdownState {
   activeDocId: string | null;
 }
 
-interface SourceFile {
+/** A file added for conversion. Files cannot be saved in the browser: this list lives as long as the window. */
+export interface SourceFile {
   id: string;
   file: File;
   status: "pending" | "converting" | "done" | "error";
@@ -26,16 +27,22 @@ interface SourceFile {
 export function MarkdownPage({
   state,
   update,
+  sources,
+  setSources,
+  isConverting,
+  setIsConverting,
   onUseInContext,
 }: {
   state: MarkdownState;
   update: (patch: Partial<MarkdownState>) => void;
+  /** Kept by the app, so that files waiting for conversion survive a change of tab. */
+  sources: SourceFile[];
+  setSources: Dispatch<SetStateAction<SourceFile[]>>;
+  isConverting: boolean;
+  setIsConverting: (busy: boolean) => void;
   onUseInContext: (docs: MarkdownDoc[]) => void;
 }) {
   const toast = useToast();
-  // Source files only live in memory: converted documents are what gets persisted.
-  const [sources, setSources] = useState<SourceFile[]>([]);
-  const [isConverting, setIsConverting] = useState(false);
   const [activeTab, setActiveTab] = useState("preview");
   const [copied, setCopied] = useState(false);
   const idCounter = useRef(0);

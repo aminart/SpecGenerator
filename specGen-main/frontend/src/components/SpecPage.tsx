@@ -1,15 +1,26 @@
 import { useState } from "react";
-import { FileText, Layers, Monitor } from "lucide-react";
+import { FileText, Info, Layers, Monitor, RefreshCw } from "lucide-react";
 import { api } from "../lib/api";
-import { documentTitle, formatSize, readImageFile, readJsonFile, readTextFile } from "../lib/files";
+import { documentTitle, formatSize, readImageFile, readJsonFile, readTextFile, textHash } from "../lib/files";
 import type { FeatureImage, Language, LoadedFile, SpecResult } from "../lib/types";
 import { ModelField } from "./ModelField";
 import { AddFileButton, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { DocumentView, EditToggle } from "./DocumentEditor";
-import { documentMeta, editedResult, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
+import {
+  documentMeta,
+  editedResult,
+  EmptyPanel,
+  ExportButtons,
+  isReworked,
+  ProgressPanel,
+  RegenerateConfirm,
+  RestorePreviousButton,
+  ResultCard,
+  WarningsPanel,
+} from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
-import { TranslateButton } from "./TranslateButton";
+import { LanguageVersions, switchLanguage, TranslateButton } from "./TranslateButton";
 import { useToast } from "./Toasts";
 
 export interface SpecState {
@@ -19,6 +30,8 @@ export interface SpecState {
   image: FeatureImage | null;
   language: Language;
   result: SpecResult | null;
+  /** The document replaced by the last generation, to go back to it. */
+  previousResult?: SpecResult | null;
 }
 
 export function SpecPage({
@@ -28,6 +41,8 @@ export function SpecPage({
   componentLibrary,
   onComponentLibraryChange,
   llmReady,
+  isGenerating,
+  onGeneratingChange: setIsGenerating,
   onGoToContext,
 }: {
   state: SpecState;
@@ -36,10 +51,12 @@ export function SpecPage({
   componentLibrary: LoadedFile | null;
   onComponentLibraryChange: (file: LoadedFile | null) => void;
   llmReady: boolean;
+  isGenerating: boolean;
+  onGeneratingChange: (busy: boolean) => void;
   onGoToContext: () => void;
 }) {
   const toast = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [editing, setEditing] = useState(false);
   const [translating, setTranslating] = useState(false);
   const result = state.result;
@@ -48,10 +65,16 @@ export function SpecPage({
   const usesGeneratedContext = !state.importedContext && Boolean(generatedContext);
   const businessContext = state.importedContext ? String(state.importedContext.content) : generatedContext;
 
+  // Specs generated before this check have no fingerprint: nothing to compare with.
+  const contextChanged = Boolean(result?.contextHash) && result?.contextHash !== textHash(businessContext);
+  const requestGenerate = () => (isReworked(result) ? setConfirmRegenerate(true) : handleGenerate());
+
   const importContext = async ([file]: File[]) => update({ importedContext: await readTextFile(file) });
 
   const handleGenerate = async () => {
+    setConfirmRegenerate(false);
     setIsGenerating(true);
+    const replaced = state.result;
     try {
       const generated = await api.generateSpec({
         business_context: businessContext,
@@ -59,7 +82,10 @@ export function SpecPage({
         component_library: componentLibrary?.content ?? null,
         language: state.language,
       });
-      update({ result: { ...generated, generatedAt: new Date().toISOString(), language: state.language } });
+      update({
+        result: { ...generated, generatedAt: new Date().toISOString(), language: state.language, contextHash: textHash(businessContext) },
+        previousResult: replaced,
+      });
       setEditing(false);
       const warningCount = generated.warnings?.length ?? 0;
       toast(
@@ -73,6 +99,13 @@ export function SpecPage({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const restorePrevious = () => {
+    if (!state.previousResult) return;
+    setEditing(false);
+    // Swapped, so that the user can go back and forth between the two versions.
+    update({ result: state.previousResult, previousResult: state.result });
   };
 
   return (
@@ -148,7 +181,7 @@ export function SpecPage({
             )}
           </Field>
 
-          <Field label="Image de la feature" optional>
+          <Field label="Image d’illustration" optional hint="Insérée dans le document et les exports. Elle n’est pas lue par l’IA.">
             {state.image ? (
               <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-lg border border-line-strong bg-surface-2">
                 <img src={`data:${state.image.mime};base64,${state.image.base64}`} alt={state.image.name} className="h-full w-full object-contain" />
@@ -189,19 +222,28 @@ export function SpecPage({
           busyLabel="Génération en cours…"
           isBusy={isGenerating}
           disabledReason={!llmReady ? "Configuration LLM incomplète : génération désactivée." : !state.specJson ? "Ajoutez le JSON écran / composant pour continuer." : null}
-          onClick={handleGenerate}
+          note={businessContext.trim() ? null : "Sans contexte projet, la spécification sera moins précise."}
+          onClick={requestGenerate}
         />
       }
     >
+      <RegenerateConfirm open={confirmRegenerate} what="la spécification" onConfirm={handleGenerate} onCancel={() => setConfirmRegenerate(false)} />
       {isGenerating ? (
-        <ProgressPanel title="Génération de la spécification" steps={["Lecture des sources", "Analyse de la structure JSON", "Rédaction par l’IA", "Mise en forme du document"]} />
+        <ProgressPanel keepsRunning title="Génération de la spécification" steps={["Lecture des sources", "Analyse de la structure JSON", "Rédaction par l’IA", "Mise en forme du document"]} />
       ) : result ? (
         <ResultCard
           eyebrow={docLanguage === "en" ? "Detailed UX / HMI specification" : "Spécification UX / HMI détaillée"}
           title={documentTitle(result.markdown, docLanguage === "en" ? "UX / HMI Specification" : "Spécification UX / HMI")}
           meta={documentMeta(result, docLanguage)}
+          metaAction={state.previousResult ? <RestorePreviousButton onRestore={restorePrevious} /> : undefined}
           actions={
             <>
+              <LanguageVersions
+                result={result}
+                language={docLanguage}
+                disabled={editing || translating}
+                onSwitch={(target) => update({ result: switchLanguage(result, docLanguage, target) })}
+              />
               <EditToggle editing={editing} disabled={translating} onToggle={() => setEditing(!editing)} />
               <TranslateButton
                 kind="spec"
@@ -216,7 +258,24 @@ export function SpecPage({
             </>
           }
         >
-          <WarningsPanel warnings={result.warnings} />
+          {contextChanged && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-line-strong bg-navy-softer p-3 text-sm text-ink-body" role="status">
+              <Info className="h-4 w-4 shrink-0 text-accent" aria-hidden />
+              <p className="min-w-0 flex-[1_1_300px]">
+                Le contexte projet a changé depuis cette génération (nouvelle génération, modification, traduction ou autre fichier importé). La
+                spécification ne le reflète peut-être plus.
+              </p>
+              <button type="button" className="btn-soft min-h-[36px] px-3" disabled={!llmReady || isGenerating || !state.specJson} onClick={requestGenerate}>
+                <RefreshCw className="h-4 w-4" aria-hidden /> Régénérer
+              </button>
+            </div>
+          )}
+          <WarningsPanel
+            warnings={result.warnings}
+            markdown={result.markdown}
+            resolved={result.resolvedWarnings}
+            onResolvedChange={(resolvedWarnings) => update({ result: { ...result, resolvedWarnings } })}
+          />
           {translating && (
             <p className="mb-4 rounded-lg border border-line bg-surface-2 p-3 text-sm text-ink-muted" aria-live="polite">
               Traduction en cours, section par section : de 30 s à quelques minutes selon la longueur du document.
