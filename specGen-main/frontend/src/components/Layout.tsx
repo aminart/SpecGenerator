@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 /** Sources panel on the left, result area on the right. */
 export function PageLayout({
@@ -16,8 +16,8 @@ export function PageLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-[calc(100vh-64px)] flex-wrap items-stretch">
-      <aside className="flex max-w-full flex-[1_1_380px] flex-col border-r border-line bg-surface lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] lg:max-w-[460px]">
+    <div className="flex min-h-[calc(100vh-var(--chrome-h))] flex-wrap items-stretch">
+      <aside className="flex max-w-full flex-[1_1_380px] flex-col border-r border-line bg-surface lg:sticky lg:top-[var(--chrome-h)] lg:h-[calc(100vh-var(--chrome-h))] lg:max-w-[460px]">
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-8 pb-6 pt-8">
           <div>
             <h1 className="text-[30px] font-bold leading-tight text-ink">{title}</h1>
@@ -37,12 +37,15 @@ export function GenerateFooter({
   busyLabel,
   isBusy,
   disabledReason,
+  note,
   onClick,
 }: {
   label: string;
   busyLabel: string;
   isBusy: boolean;
   disabledReason: string | null;
+  /** Advice shown under an enabled button, e.g. a missing optional source. */
+  note?: string | null;
   onClick: () => void;
 }) {
   return (
@@ -57,6 +60,12 @@ export function GenerateFooter({
         {isBusy ? busyLabel : label}
       </button>
       {disabledReason && !isBusy && <p className="mt-2 text-center text-[13px] text-ink-subtle">{disabledReason}</p>}
+      {note && !disabledReason && !isBusy && (
+        <p className="mt-2 flex items-start justify-center gap-1.5 text-center text-[13px] text-warning-text">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          {note}
+        </p>
+      )}
     </div>
   );
 }

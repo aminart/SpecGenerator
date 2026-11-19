@@ -7,7 +7,18 @@ import { ModelField } from "./ModelField";
 import { AddFileButton, Field, FileChip, FileLink, LanguageField, LargeDropzone } from "./fields";
 import { GenerateFooter, PageLayout } from "./Layout";
 import { DocumentView, EditToggle } from "./DocumentEditor";
-import { documentMeta, editedResult, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
+import {
+  documentMeta,
+  editedResult,
+  EmptyPanel,
+  ExportButtons,
+  isReworked,
+  ProgressPanel,
+  RegenerateConfirm,
+  RestorePreviousButton,
+  ResultCard,
+  WarningsPanel,
+} from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { TranslateButton } from "./TranslateButton";
 import { useToast } from "./Toasts";
@@ -19,6 +30,8 @@ export interface SpecState {
   image: FeatureImage | null;
   language: Language;
   result: SpecResult | null;
+  /** The document replaced by the last generation, to go back to it. */
+  previousResult?: SpecResult | null;
 }
 
 export function SpecPage({
@@ -28,6 +41,8 @@ export function SpecPage({
   componentLibrary,
   onComponentLibraryChange,
   llmReady,
+  isGenerating,
+  onGeneratingChange: setIsGenerating,
   onGoToContext,
 }: {
   state: SpecState;
@@ -36,10 +51,12 @@ export function SpecPage({
   componentLibrary: LoadedFile | null;
   onComponentLibraryChange: (file: LoadedFile | null) => void;
   llmReady: boolean;
+  isGenerating: boolean;
+  onGeneratingChange: (busy: boolean) => void;
   onGoToContext: () => void;
 }) {
   const toast = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [editing, setEditing] = useState(false);
   const [translating, setTranslating] = useState(false);
   const result = state.result;
@@ -51,7 +68,9 @@ export function SpecPage({
   const importContext = async ([file]: File[]) => update({ importedContext: await readTextFile(file) });
 
   const handleGenerate = async () => {
+    setConfirmRegenerate(false);
     setIsGenerating(true);
+    const replaced = state.result;
     try {
       const generated = await api.generateSpec({
         business_context: businessContext,
@@ -59,7 +78,7 @@ export function SpecPage({
         component_library: componentLibrary?.content ?? null,
         language: state.language,
       });
-      update({ result: { ...generated, generatedAt: new Date().toISOString(), language: state.language } });
+      update({ result: { ...generated, generatedAt: new Date().toISOString(), language: state.language }, previousResult: replaced });
       setEditing(false);
       const warningCount = generated.warnings?.length ?? 0;
       toast(
@@ -73,6 +92,13 @@ export function SpecPage({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const restorePrevious = () => {
+    if (!state.previousResult) return;
+    setEditing(false);
+    // Swapped, so that the user can go back and forth between the two versions.
+    update({ result: state.previousResult, previousResult: state.result });
   };
 
   return (
@@ -148,7 +174,7 @@ export function SpecPage({
             )}
           </Field>
 
-          <Field label="Image de la feature" optional>
+          <Field label="Image d’illustration" optional hint="Insérée dans le document et les exports. Elle n’est pas lue par l’IA.">
             {state.image ? (
               <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-lg border border-line-strong bg-surface-2">
                 <img src={`data:${state.image.mime};base64,${state.image.base64}`} alt={state.image.name} className="h-full w-full object-contain" />
@@ -189,17 +215,20 @@ export function SpecPage({
           busyLabel="Génération en cours…"
           isBusy={isGenerating}
           disabledReason={!llmReady ? "Configuration LLM incomplète : génération désactivée." : !state.specJson ? "Ajoutez le JSON écran / composant pour continuer." : null}
-          onClick={handleGenerate}
+          note={businessContext.trim() ? null : "Sans contexte projet, la spécification sera moins précise."}
+          onClick={() => (isReworked(result) ? setConfirmRegenerate(true) : handleGenerate())}
         />
       }
     >
+      <RegenerateConfirm open={confirmRegenerate} what="la spécification" onConfirm={handleGenerate} onCancel={() => setConfirmRegenerate(false)} />
       {isGenerating ? (
-        <ProgressPanel title="Génération de la spécification" steps={["Lecture des sources", "Analyse de la structure JSON", "Rédaction par l’IA", "Mise en forme du document"]} />
+        <ProgressPanel keepsRunning title="Génération de la spécification" steps={["Lecture des sources", "Analyse de la structure JSON", "Rédaction par l’IA", "Mise en forme du document"]} />
       ) : result ? (
         <ResultCard
           eyebrow={docLanguage === "en" ? "Detailed UX / HMI specification" : "Spécification UX / HMI détaillée"}
           title={documentTitle(result.markdown, docLanguage === "en" ? "UX / HMI Specification" : "Spécification UX / HMI")}
           meta={documentMeta(result, docLanguage)}
+          metaAction={state.previousResult ? <RestorePreviousButton onRestore={restorePrevious} /> : undefined}
           actions={
             <>
               <EditToggle editing={editing} disabled={translating} onToggle={() => setEditing(!editing)} />

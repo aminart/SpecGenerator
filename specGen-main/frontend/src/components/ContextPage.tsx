@@ -9,7 +9,18 @@ import { AddFileButton, Field, FileChip, LanguageField, LargeDropzone } from "./
 import { GenerateFooter, PageLayout } from "./Layout";
 import { DocumentView, EditToggle } from "./DocumentEditor";
 import { mermaidError } from "./MermaidDiagram";
-import { documentMeta, editedResult, EmptyPanel, ExportButtons, ProgressPanel, ResultCard, WarningsPanel } from "./ResultCard";
+import {
+  documentMeta,
+  editedResult,
+  EmptyPanel,
+  ExportButtons,
+  isReworked,
+  ProgressPanel,
+  RegenerateConfirm,
+  RestorePreviousButton,
+  ResultCard,
+  WarningsPanel,
+} from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
 import { TranslateButton } from "./TranslateButton";
 import { useToast } from "./Toasts";
@@ -19,6 +30,8 @@ export interface ContextState {
   jsonFiles: LoadedFile[];
   language: Language;
   result: ContextResult | null;
+  /** The document replaced by the last generation, to go back to it. */
+  previousResult?: ContextResult | null;
 }
 
 export function ContextPage({
@@ -27,6 +40,8 @@ export function ContextPage({
   componentLibrary,
   onComponentLibraryChange,
   llmReady,
+  isGenerating,
+  onGeneratingChange: setIsGenerating,
   onUseInSpec,
 }: {
   state: ContextState;
@@ -34,10 +49,12 @@ export function ContextPage({
   componentLibrary: LoadedFile | null;
   onComponentLibraryChange: (file: LoadedFile | null) => void;
   llmReady: boolean;
+  isGenerating: boolean;
+  onGeneratingChange: (busy: boolean) => void;
   onUseInSpec: () => void;
 }) {
   const toast = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [editing, setEditing] = useState(false);
   const [translating, setTranslating] = useState(false);
   const result = state.result;
@@ -58,7 +75,9 @@ export function ContextPage({
   };
 
   const handleGenerate = async () => {
+    setConfirmRegenerate(false);
     setIsGenerating(true);
+    const replaced = state.result;
     try {
       const generated = await api.generateContext({
         markdown_sources: state.markdownFiles,
@@ -67,7 +86,7 @@ export function ContextPage({
         language: state.language,
       });
       const markdown = await withFlowDiagram(generated.markdown);
-      update({ result: { ...generated, markdown, generatedAt: new Date().toISOString(), language: state.language } });
+      update({ result: { ...generated, markdown, generatedAt: new Date().toISOString(), language: state.language }, previousResult: replaced });
       setEditing(false);
       toast(
         generated.retried_light || generated.warnings?.length ? "info" : "success",
@@ -116,6 +135,13 @@ export function ContextPage({
 
   const markdownIcon = <FileText className="h-[22px] w-[22px]" strokeWidth={1.8} />;
 
+  const restorePrevious = () => {
+    if (!state.previousResult) return;
+    setEditing(false);
+    // Swapped, so that the user can go back and forth between the two versions.
+    update({ result: state.previousResult, previousResult: state.result });
+  };
+
   return (
     <PageLayout
       title="Créer un contexte"
@@ -157,12 +183,14 @@ export function ContextPage({
           busyLabel="Génération en cours…"
           isBusy={isGenerating}
           disabledReason={!llmReady ? "Configuration LLM incomplète : génération désactivée." : !hasSource ? "Ajoutez au moins un Markdown ou un JSON pour continuer." : null}
-          onClick={handleGenerate}
+          onClick={() => (isReworked(result) ? setConfirmRegenerate(true) : handleGenerate())}
         />
       }
     >
+      <RegenerateConfirm open={confirmRegenerate} what="le document de contexte" onConfirm={handleGenerate} onCancel={() => setConfirmRegenerate(false)} />
       {isGenerating ? (
         <ProgressPanel
+          keepsRunning
           title="Génération du document de contexte"
           steps={["Lecture et agrégation des sources", "Analyse de la structure et des parcours", "Rédaction par l’IA", "Schéma du parcours utilisateur", "Mise en forme du document"]}
           note="En cas de délai dépassé, une nouvelle tentative en mode allégé est lancée automatiquement."
@@ -172,6 +200,7 @@ export function ContextPage({
           eyebrow={docLanguage === "en" ? "UX Architecture · Global application context" : "Architecture UX · Contexte global application"}
           title={documentTitle(result.markdown, docLanguage === "en" ? "UX Architecture / Project overview" : "Architecture UX / Project overview")}
           meta={documentMeta(result, docLanguage)}
+          metaAction={state.previousResult ? <RestorePreviousButton onRestore={restorePrevious} /> : undefined}
           cta={
             <button type="button" className="btn-soft" onClick={onUseInSpec}>
               Utiliser pour la spécification <ArrowRight className="h-4 w-4" aria-hidden />

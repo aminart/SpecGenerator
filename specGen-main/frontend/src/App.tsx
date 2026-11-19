@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Check, Settings } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Check, Loader2, Settings } from "lucide-react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ContextPage, type ContextState } from "./components/ContextPage";
 import { HomePage } from "./components/HomePage";
@@ -39,6 +39,20 @@ function Workspace() {
   const [confirmReset, setConfirmReset] = useState(false);
   // Changing the key remounts the pages, which drops their in-memory state (e.g. files waiting for conversion).
   const [resetKey, setResetKey] = useState(0);
+  // Kept here rather than in the pages, so that a generation still shows as running after a change of tab.
+  const [generating, setGenerating] = useState<{ context: boolean; spec: boolean }>({ context: false, spec: false });
+  const setContextGenerating = useCallback((busy: boolean) => setGenerating((current) => ({ ...current, context: busy })), []);
+  const setSpecGenerating = useCallback((busy: boolean) => setGenerating((current) => ({ ...current, spec: busy })), []);
+  // Height of the app bar and of the warning banner, for the sticky source panel of the pages.
+  const chromeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = chromeRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => document.documentElement.style.setProperty("--chrome-h", `${element.offsetHeight}px`));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const refreshHealth = useCallback(async () => {
     const loaded = await api.health();
@@ -81,11 +95,11 @@ function Workspace() {
   const llmReady = Boolean(health?.configured);
   const generatedContext = context.result?.markdown ?? "";
 
-  const tabs: { id: Page; label: string; done?: boolean }[] = [
+  const tabs: { id: Page; label: string; done?: boolean; busy?: boolean }[] = [
     { id: "home", label: "Accueil" },
     { id: "markdown", label: "Convertir en Markdown", done: markdown.docs.length > 0 },
-    { id: "context", label: "Créer un contexte", done: Boolean(generatedContext) },
-    { id: "spec", label: "Générer une spécification", done: Boolean(spec.result) },
+    { id: "context", label: "Créer un contexte", done: Boolean(generatedContext), busy: generating.context },
+    { id: "spec", label: "Générer une spécification", done: Boolean(spec.result), busy: generating.spec },
   ];
 
   const hasWork =
@@ -119,7 +133,8 @@ function Workspace() {
 
   return (
     <div className="min-h-screen">
-      <header className="nn-appbar z-40 lg:sticky lg:top-0">
+      <div ref={chromeRef} className="z-40 lg:sticky lg:top-0">
+      <header className="nn-appbar">
         <a
           href="#"
           className="nn-appbar-brand"
@@ -142,7 +157,9 @@ function Workspace() {
                 aria-current={active ? "page" : undefined}
                 className={`nn-appbar-tab gap-2 ${active ? "is-active" : ""}`}
               >
-                {tab.done && (
+                {tab.busy ? (
+                  <Loader2 className="h-[18px] w-[18px] animate-spin text-accent" aria-label="Génération en cours" />
+                ) : tab.done && (
                   <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-success" aria-label="Terminé">
                     <Check className="h-[11px] w-[11px] text-surface" strokeWidth={3.5} aria-hidden />
                   </span>
@@ -196,6 +213,7 @@ function Workspace() {
           </p>
         </div>
       )}
+      </div>
 
       <ConfirmDialog
         open={confirmReset}
@@ -236,6 +254,8 @@ function Workspace() {
           componentLibrary={componentLibrary}
           onComponentLibraryChange={setComponentLibrary}
           llmReady={llmReady}
+          isGenerating={generating.context}
+          onGeneratingChange={setContextGenerating}
           onUseInSpec={() => {
             updateSpec({ importedContext: null });
             setPage("spec");
@@ -250,6 +270,8 @@ function Workspace() {
           componentLibrary={componentLibrary}
           onComponentLibraryChange={setComponentLibrary}
           llmReady={llmReady}
+          isGenerating={generating.spec}
+          onGeneratingChange={setSpecGenerating}
           onGoToContext={() => setPage("context")}
         />
       )}

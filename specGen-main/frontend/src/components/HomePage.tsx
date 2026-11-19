@@ -25,7 +25,7 @@ const CARDS: { page: Page; step: string; title: string; description: string; io:
     step: "Étape 3",
     title: "Générer une spécification",
     description: "Produisez la spécification UX / HMI détaillée d’un écran ou d’un composant : variantes, états, comportements, erreurs.",
-    io: ["Contexte, JSON écran, image de la feature", "DOCX, Markdown, HTML"],
+    io: ["Contexte, JSON écran, image d’illustration", "DOCX, Markdown, HTML"],
     icon: <Monitor className="h-[22px] w-[22px]" strokeWidth={1.8} />,
   },
 ];

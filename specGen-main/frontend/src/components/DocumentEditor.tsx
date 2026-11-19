@@ -76,7 +76,7 @@ export function DocumentEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-0 z-10 -mx-2 flex flex-wrap items-center gap-3 rounded-lg border border-line-strong bg-navy-softer px-4 py-2.5 shadow-sm">
+      <div className="sticky top-0 z-10 -mx-2 lg:top-[calc(var(--chrome-h)+8px)] flex flex-wrap items-center gap-3 rounded-lg border border-line-strong bg-navy-softer px-4 py-2.5 shadow-sm">
         <p className="min-w-0 flex-1 text-[13px] leading-snug text-ink-muted">
           <span className="font-medium text-accent">Mode édition.</span> Cliquez dans le texte pour le modifier (Ctrl+B gras, Ctrl+I italique, Entrée nouveau
           paragraphe). Survolez un bloc pour l’ajouter, le supprimer ou modifier un tableau. Les exports utilisent cette version.
