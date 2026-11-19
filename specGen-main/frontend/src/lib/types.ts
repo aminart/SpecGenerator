@@ -80,7 +80,26 @@ export interface ComponentScope {
   rationale: string;
 }
 
-export interface ContextResult {
+/** One language version of a generated document, kept aside while the other one is shown. */
+export interface DocumentVersion {
+  markdown: string;
+  warnings?: string[];
+  resolvedWarnings?: string[];
+  generatedAt?: string;
+  originalMarkdown?: string;
+  editedAt?: string;
+  translatedAt?: string;
+}
+
+/** Fields shared by the generated context and spec. */
+export interface DocumentExtras {
+  /** Warnings the user marked as handled. */
+  resolvedWarnings?: string[];
+  /** The other language versions of the document, once it has been translated. */
+  alternates?: Partial<Record<Language, DocumentVersion>>;
+}
+
+export interface ContextResult extends DocumentExtras {
   markdown: string;
   journey_markdown: string;
   journey_mermaid: string;
@@ -98,7 +117,7 @@ export interface ContextResult {
   translatedAt?: string;
 }
 
-export interface SpecResult {
+export interface SpecResult extends DocumentExtras {
   markdown: string;
   /** Problems still found after the correction pass (missing headings, components absent from the JSON…). */
   warnings?: string[];
@@ -113,6 +132,8 @@ export interface SpecResult {
   /** Language of the document shown: it changes when the document is translated. */
   language?: Language;
   translatedAt?: string;
+  /** Fingerprint of the project context the spec was generated from, to tell when it changed. */
+  contextHash?: string;
 }
 
 /** Models set in Studio Dock, offered when launching a generation. */

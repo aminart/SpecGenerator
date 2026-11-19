@@ -22,7 +22,7 @@ import {
   WarningsPanel,
 } from "./ResultCard";
 import { ComponentLibraryField, JsonIcon } from "./shared";
-import { TranslateButton } from "./TranslateButton";
+import { LanguageVersions, switchLanguage, TranslateButton } from "./TranslateButton";
 import { useToast } from "./Toasts";
 
 export interface ContextState {
@@ -208,6 +208,12 @@ export function ContextPage({
           }
           actions={
             <>
+              <LanguageVersions
+                result={result}
+                language={docLanguage}
+                disabled={editing || translating}
+                onSwitch={(target) => update({ result: switchLanguage(result, docLanguage, target) })}
+              />
               <EditToggle editing={editing} disabled={translating} onToggle={() => setEditing(!editing)} />
               <TranslateButton
                 kind="context"
@@ -222,7 +228,12 @@ export function ContextPage({
             </>
           }
         >
-          <WarningsPanel warnings={result.warnings} />
+          <WarningsPanel
+            warnings={result.warnings}
+            markdown={result.markdown}
+            resolved={result.resolvedWarnings}
+            onResolvedChange={(resolvedWarnings) => update({ result: { ...result, resolvedWarnings } })}
+          />
           {translating && (
             <p className="mb-4 rounded-lg border border-line bg-surface-2 p-3 text-sm text-ink-muted" aria-live="polite">
               Traduction en cours, section par section : de 30 s à quelques minutes selon la longueur du document.

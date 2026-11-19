@@ -389,7 +389,7 @@ function SourceBlock(props: BlockProps) {
 
 export function EditToggle({ editing, onToggle, disabled }: { editing: boolean; onToggle: () => void; disabled?: boolean }) {
   return editing ? (
-    <button type="button" className="btn-primary" onClick={onToggle}>
+    <button type="button" className="btn-secondary" onClick={onToggle}>
       <Check className="h-4 w-4" aria-hidden /> Terminer
     </button>
   ) : (

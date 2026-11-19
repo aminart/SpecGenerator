@@ -3,7 +3,7 @@ import { AlertTriangle, Check, Loader2, Settings } from "lucide-react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ContextPage, type ContextState } from "./components/ContextPage";
 import { HomePage } from "./components/HomePage";
-import { MarkdownPage, type MarkdownState } from "./components/MarkdownPage";
+import { MarkdownPage, type MarkdownState, type SourceFile } from "./components/MarkdownPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { SpecPage, type SpecState } from "./components/SpecPage";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -41,6 +41,9 @@ function Workspace() {
   const [resetKey, setResetKey] = useState(0);
   // Kept here rather than in the pages, so that a generation still shows as running after a change of tab.
   const [generating, setGenerating] = useState<{ context: boolean; spec: boolean }>({ context: false, spec: false });
+  // Files added on the conversion page: in memory only (a File cannot be saved), but kept across tabs.
+  const [markdownSources, setMarkdownSources] = useState<SourceFile[]>([]);
+  const [converting, setConverting] = useState(false);
   const setContextGenerating = useCallback((busy: boolean) => setGenerating((current) => ({ ...current, context: busy })), []);
   const setSpecGenerating = useCallback((busy: boolean) => setGenerating((current) => ({ ...current, spec: busy })), []);
   // Height of the app bar and of the warning banner, for the sticky source panel of the pages.
@@ -97,13 +100,14 @@ function Workspace() {
 
   const tabs: { id: Page; label: string; done?: boolean; busy?: boolean }[] = [
     { id: "home", label: "Accueil" },
-    { id: "markdown", label: "Convertir en Markdown", done: markdown.docs.length > 0 },
+    { id: "markdown", label: "Convertir en Markdown", done: markdown.docs.length > 0, busy: converting },
     { id: "context", label: "Créer un contexte", done: Boolean(generatedContext), busy: generating.context },
     { id: "spec", label: "Générer une spécification", done: Boolean(spec.result), busy: generating.spec },
   ];
 
   const hasWork =
     markdown.docs.length > 0 ||
+    markdownSources.length > 0 ||
     context.markdownFiles.length > 0 ||
     context.jsonFiles.length > 0 ||
     Boolean(context.result) ||
@@ -115,6 +119,7 @@ function Workspace() {
     setContext(INITIAL_CONTEXT);
     setSpec(INITIAL_SPEC);
     setComponentLibrary(null);
+    setMarkdownSources([]);
     setResetKey((current) => current + 1);
     setConfirmReset(false);
     if (page !== "settings") setPage("home");
@@ -158,7 +163,7 @@ function Workspace() {
                 className={`nn-appbar-tab gap-2 ${active ? "is-active" : ""}`}
               >
                 {tab.busy ? (
-                  <Loader2 className="h-[18px] w-[18px] animate-spin text-accent" aria-label="Génération en cours" />
+                  <Loader2 className="h-[18px] w-[18px] animate-spin text-accent" aria-label={tab.id === "markdown" ? "Conversion en cours" : "Génération en cours"} />
                 ) : tab.done && (
                   <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-success" aria-label="Terminé">
                     <Check className="h-[11px] w-[11px] text-surface" strokeWidth={3.5} aria-hidden />
@@ -246,7 +251,17 @@ function Workspace() {
           }}
         />
       )}
-      {page === "markdown" && <MarkdownPage state={markdown} update={updateMarkdown} onUseInContext={useDocsInContext} />}
+      {page === "markdown" && (
+        <MarkdownPage
+          state={markdown}
+          update={updateMarkdown}
+          sources={markdownSources}
+          setSources={setMarkdownSources}
+          isConverting={converting}
+          setIsConverting={setConverting}
+          onUseInContext={useDocsInContext}
+        />
+      )}
       {page === "context" && (
         <ContextPage
           state={context}
