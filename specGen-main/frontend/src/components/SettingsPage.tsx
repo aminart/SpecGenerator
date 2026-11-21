@@ -435,7 +435,7 @@ export function SettingsPage({ onSaved, onLater }: { onSaved: (settings: Connect
             <label className="mt-4 flex items-start gap-3 text-sm text-ink-body">
               <input
                 type="checkbox"
-                className="mt-1 h-4 w-4"
+                className="mt-0.5"
                 checked={generationLog}
                 disabled={saved.generation_log_from_env}
                 onChange={(event) => setGenerationLog(event.target.checked)}
