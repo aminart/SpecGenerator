@@ -5,6 +5,13 @@ le [versionnage sémantique](https://semver.org/lang/fr/) : voir README, « Vers
 
 ## [Non publié]
 
+## [1.4.1] — 2026-11-21
+
+### Modifié
+
+- Design system Night Navy 1.2.1 : les cases à cocher (réglages, listes de tâches de l'aperçu) prennent le style
+  commun aux apps de la suite — contour gris foncé, coché en bleu marine, focus visible, clair et sombre.
+
 ## [1.4.0] — 2026-11-19
 
 ### Modifié
